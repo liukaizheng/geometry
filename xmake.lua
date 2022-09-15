@@ -1,6 +1,7 @@
 add_rules("mode.debug", "mode.release")
 
 target("geometry")
+    set_languages("cxx20")
     set_kind("binary")
     add_includedirs("$(projectdir)/include", "$(projectdir)/eigen")
     add_files("src/*.cpp", "src/geometrycentral/surface/*.cpp", "src/geometrycentral/utilities/*.cpp")

@@ -88,14 +88,9 @@ void MeshData<E, T>::registerWithMesh() {
   // Callback function on expansion
   std::function<void(size_t)> expandFunc = [&](size_t newSize) {
     size_t oldSize = data.size();
-    Eigen::Matrix<T, Eigen::Dynamic, 1> newData(newSize);
-    for (size_t i = 0; i < oldSize; i++) {
-      newData[i] = data[i];
-    }
-    for (size_t i = oldSize; i < newSize; i++) {
-      newData[i] = defaultValue;
-    }
-    data = newData;
+    // Eigen::Matrix<T, Eigen::Dynamic, 1> newData(newSize);
+    data.conservativeResize(newSize);
+    std::fill(data.data() + oldSize, data.data() + newSize, defaultValue);
   };
 
 

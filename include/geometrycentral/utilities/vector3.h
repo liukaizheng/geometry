@@ -19,11 +19,11 @@ struct Vector3 {
   static Vector3 zero() { return Vector3{0., 0., 0.}; }
   static Vector3 constant(double c) { return Vector3{c, c, c}; }
   static Vector3 infinity() {
-    const double inf = ::std::numeric_limits<double>::infinity();
+    constexpr double inf = ::std::numeric_limits<double>::infinity();
     return Vector3{inf, inf, inf};
   }
   static Vector3 undefined() {
-    const double nan = ::std::numeric_limits<double>::quiet_NaN();
+    constexpr double nan = ::std::numeric_limits<double>::quiet_NaN();
     return Vector3{nan, nan, nan};
   }
 
