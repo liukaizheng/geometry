@@ -1,0 +1,13 @@
+# Xmake cache
+.xmake/
+build/
+target/
+cpp/.cache/
+cpp/external/eigen/
+vsxmake2022/
+compile_commands.json
+
+# MacOS Cache
+.DS_Store
+
+
