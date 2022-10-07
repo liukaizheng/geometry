@@ -1,5 +1,4 @@
 add_rules("mode.debug", "mode.release")
-
 target("triangle")
     -- set_kind("object")
     set_kind("static")
@@ -10,8 +9,13 @@ target("triangle")
     if is_plat("windows") then
         add_defines("NO_TIMER")
     end
+    set_toolset("ar", "llvm-ar.exe")
+    set_warnings("everything")
+    add_cxxflags("-Wno-c++98-compat")
 
 target("geometry")
     set_kind("binary")
     add_deps("triangle")
     add_files("src/*.cpp")
+    set_warnings("everything")
+    add_cxxflags("-Wno-c++98-compat")

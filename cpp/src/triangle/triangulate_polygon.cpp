@@ -1,9 +1,9 @@
 #include <Eigen/Dense>
 #include <cmath>
-#include <iostream>
 #include <ranges>
 #include <triangle/triangle.h>
 #include <unordered_map>
+#include <vector>
 
 template <typename Index>
 std::vector<Index> unique_indices(const Index* indices, const std::size_t len, std::vector<Index>& new_to_origin_map) {
@@ -11,23 +11,20 @@ std::vector<Index> unique_indices(const Index* indices, const std::size_t len, s
     Index count = 0;
     std::unordered_map<Index, Index> map;
     map.reserve(len);
-    const auto range{
-        std::ranges::subrange(indices, indices + len) | std::views::transform([&count, &map](const Index old) -> Index {
-            auto iter = map.find(old);
-            if (iter != map.end()) {
-                return iter->second;
-            } else {
-                map.emplace(old, count++);
-                return count - 1;
-            }
-        })};
-    std::vector<Index> result;
-    result.reserve(static_cast<std::size_t>(len));
-    std::ranges::copy(range, std::back_inserter(result));
-    new_to_origin_map.resize(count);
-    std::ranges::for_each(std::move(map), [&new_to_origin_map](auto&& pair) {
-        new_to_origin_map[pair.second] = pair.first;
+    std::vector<Index> result(static_cast<std::size_t>(len));
+    std::transform(indices, indices + len, result.begin(), [&count, &map](const Index old) {
+        auto iter = map.find(old);
+        if (iter != map.end()) {
+            return iter->second;
+        } else {
+            map.emplace(old, count++);
+            return count - 1;
+        }
     });
+    new_to_origin_map.resize(count);
+    for (auto&& pair : std::move(map)) {
+        new_to_origin_map[pair.second] = pair.first;
+    }
     return result;
 }
 
@@ -46,7 +43,7 @@ uint32_t* triangulate_polygon(
     using Matrix = Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor>;
     Matrix points_2d(new_to_origin_map.size(), 2);
     // convert 3d points to 2d points
-    for (std::size_t i = 0; i < new_to_origin_map.size(); i++) {
+    for (uint32_t i = 0; i < new_to_origin_map.size(); i++) {
         const Vector3d p{points + new_to_origin_map[i] * 3};
         const auto v = (p - origin).eval();
         double* p_2d = &points_2d(i, 0);
@@ -58,8 +55,6 @@ uint32_t* triangulate_polygon(
     const auto outer_loop_is_positive = [&seperator, &points_2d, &indices, &cross]() -> bool {
         double area = 0;
         for (std::size_t i = 0, len = seperator[0]; i < len; i++) {
-            const double* p0 = &points_2d(indices[i], 0);
-            const double* p1 = &points_2d(indices[(i + 1) % len], 0);
             area += cross(&points_2d(indices[i], 0), &points_2d(indices[(i + 1) % len], 0));
         }
         return area > 0;
@@ -132,17 +127,15 @@ uint32_t* triangulate_polygon(
     in.numberofsegments = static_cast<int>(seperator[n_loops - 1]);
     std::vector<int> edges;
     edges.reserve(seperator[n_loops - 1]);
-    std::ranges::for_each(
-        std::ranges::iota_view{0u, n_loops}, [&seperator, &indices, &edges ](const auto idx) -> auto{
-            const std::size_t start_idx = idx == 0 ? 0 : seperator[idx - 1];
-            const std::size_t end_idx = seperator[idx];
-            const auto len = end_idx - start_idx;
-            for (std::size_t i = 0; i < len; i++) {
-                edges.emplace_back(static_cast<int>(indices[i + start_idx]));
-                edges.emplace_back(static_cast<int>(indices[(i + 1) % len + start_idx]));
-            }
+    for (uint32_t idx = 0; idx < n_loops; idx++) {
+        const std::size_t start_idx = idx == 0 ? 0 : seperator[idx - 1];
+        const std::size_t end_idx = seperator[idx];
+        const auto len = end_idx - start_idx;
+        for (std::size_t i = 0; i < len; i++) {
+            edges.emplace_back(static_cast<int>(indices[i + start_idx]));
+            edges.emplace_back(static_cast<int>(indices[(i + 1) % len + start_idx]));
         }
-    );
+    }
     in.segmentlist = edges.data();
     in.segmentmarkerlist = nullptr;
 
@@ -169,7 +162,7 @@ uint32_t* triangulate_polygon(
     const auto n_triangle_arr = *n_triangles * 3;
     auto result = std::make_unique<uint32_t[]>(n_triangle_arr);
     for (uint32_t i = 0; i < n_triangle_arr; i++) {
-        result[i] = new_to_origin_map[out.trianglelist[i]];
+        result[i] = new_to_origin_map[static_cast<std::size_t>(out.trianglelist[i])];
     }
     free(out.trianglelist);
     return result.release();

@@ -3,15 +3,14 @@ extern crate cc;
 fn main() -> std::io::Result<()> {
     let mut base = cc::Build::new();
     base.cpp(true)
-        .flag("-EHsc")
-        .flag("-nologo")
-        .flag("-std:c++latest")
+        // .flag("-std=c++2b")
+        .flag("--sysroot=C:/Users/cazean/AppData/Local/emsdk/upstream/emscripten/cache/sysroot")
         .include("cpp/external/eigen")
         .include("cpp/include")
         .pic(true)
-        .target("msvc-wasm32-unknown-unknown")
-        // .host("x86_64-pc-windows-msvc")
-        .warnings(true);
+        .target("wasm32-unknown-emscripten");
+    // .target("x86_64-pc-windows-msvc");
+
     base.clone()
         .files([
             "cpp/src/triangle/triangle.cpp",
