@@ -5,13 +5,15 @@ extern "C" {
     fn triangulate_polygon(
         points: *const c_double,
         indices: *const u32,
-        seperator: *const usize,
-        n_loops: usize,
+        seperator: *const c_uint,
+        n_loops: c_uint,
         x_axis_data: *const c_double,
         y_axis_data: *const c_double,
         origin_data: *const c_double,
         n_triangles: &mut c_uint,
     ) -> *mut c_uint;
+
+    fn exactinit();
 }
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -51,13 +53,13 @@ impl Plane {
 #[wasm_bindgen]
 pub struct Polygon {
     indices: Vec<u32>,
-    seperator: Vec<usize>,
+    seperator: Vec<u32>,
     plane: Plane,
 }
 
 #[wasm_bindgen]
 impl Polygon {
-    pub fn new(indices: Vec<u32>, seperator: Vec<usize>, plane: Plane) -> Polygon {
+    pub fn new(indices: Vec<u32>, seperator: Vec<u32>, plane: Plane) -> Polygon {
         Polygon {
             indices,
             seperator,
@@ -88,6 +90,9 @@ impl Polygons {
 
 #[wasm_bindgen]
 pub fn repair_polygons(polygons: Polygons) -> Polygons {
+    unsafe {
+        exactinit();
+    }
     for poly in &polygons.polygons {
         unsafe {
             let mut n_triangle = 0;
@@ -95,7 +100,7 @@ pub fn repair_polygons(polygons: Polygons) -> Polygons {
                 polygons.points.as_ptr(),
                 poly.indices.as_ptr(),
                 poly.seperator.as_ptr(),
-                poly.seperator.len(),
+                poly.seperator.len() as u32,
                 poly.plane.x_axis.as_ptr(),
                 poly.plane.y_axis.as_ptr(),
                 poly.plane.origin.as_ptr(),
