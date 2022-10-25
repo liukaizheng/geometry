@@ -1,8 +1,11 @@
+#include <memory>
 #include <triangle/triangle.h>
 
 #include <algorithm>
 #include <array>
 #include <numeric>
+#include <vector>
+#include <cstdint>
 
 extern "C" {
 double orient2d(double*, double*, double*);
@@ -418,6 +421,9 @@ static void div_conq_recurse(
         );
         if (area == 0.0) {
             // Three collinear vertices; the triangulation is two edges
+            // const auto p1 = &m->points[m->sorted_pt_inds[start]];
+            // const auto p2 = &m->points[m->sorted_pt_inds[start + 1]];
+            // const auto p3 = &m->points[m->sorted_pt_inds[start + 2]];
             set_org(m->triangles, midtri, m->sorted_pt_inds[start]);
             set_dest(m->triangles, midtri, m->sorted_pt_inds[start + 1]);
             set_org(m->triangles, tri1, m->sorted_pt_inds[start + 1]);
@@ -502,8 +508,8 @@ static void div_conq_recurse(
     }
 }
 
-std::vector<uint32_t>
-triangualte(const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments) {
+uint32_t*
+triangulate(const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments, uint32_t* n_triangles) {
     std::vector<uint32_t> sorted_pt_inds(n_points);
     std::iota(sorted_pt_inds.begin(), sorted_pt_inds.end(), 0);
     std::sort(sorted_pt_inds.begin(), sorted_pt_inds.end(), [points](const uint32_t i, const uint32_t j) {
@@ -531,13 +537,14 @@ triangualte(const double* points, uint32_t n_points, const uint32_t* segments, c
     const auto iter = std::remove_if(mesh.triangles.begin(), mesh.triangles.end(), [](const Triangle& tri) {
         return tri.data[0] == INVALID || tri.data[1] == INVALID || tri.data[2] == INVALID;
     });
-    std::vector<uint32_t> triangle_indices;
-    triangle_indices.reserve(static_cast<std::size_t>(std::distance(mesh.triangles.begin(), iter)) * 3);
-    std::for_each(mesh.triangles.begin(), iter, [&triangle_indices](const Triangle& tri) {
-        triangle_indices.emplace_back(tri.data[0]);
-        triangle_indices.emplace_back(tri.data[1]);
-        triangle_indices.emplace_back(tri.data[2]);
-    });
-
-    return triangle_indices;
+    *n_triangles = static_cast<uint32_t>(std::distance(mesh.triangles.begin(), iter));
+    auto triangle_indices = std::make_unique<uint32_t[]>(*n_triangles * 3);
+    for(uint32_t i = 0; i < *n_triangles; i++) {
+        auto data = &triangle_indices[i * 3];
+        data[0] = mesh.triangles[i].data[0];
+        data[1] = mesh.triangles[i].data[1];
+        data[2] = mesh.triangles[i].data[2];
+    }
+    return triangle_indices.release();
 }
+
