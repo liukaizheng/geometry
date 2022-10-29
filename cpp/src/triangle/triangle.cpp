@@ -1,11 +1,12 @@
-#include <memory>
 #include <triangle/triangle.h>
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
+#include <limits>
+#include <memory>
 #include <numeric>
 #include <vector>
-#include <cstdint>
 
 extern "C" {
 double orient2d(double*, double*, double*);
@@ -35,9 +36,9 @@ static void alternate_axes(const double* points, uint32_t* indices, const uint32
         axis = 0;
     }
     std::nth_element(indices, indices + divider, indices + len, [&points, axis](const uint32_t i, const uint32_t j) {
-        const double* pi = &points[i * 2];
-        const double* pj = &points[j * 2];
-        return pi[axis] < pj[axis];
+        const double* pi = &points[i << 1];
+        const double* pj = &points[j << 1];
+        return pi[axis] < pj[axis] || (pi[axis] == pj[axis] && pi[1 - axis] < pj[1 - axis]);
     });
     if (len - divider >= 2) {
         if (divider >= 2) {
@@ -421,9 +422,6 @@ static void div_conq_recurse(
         );
         if (area == 0.0) {
             // Three collinear vertices; the triangulation is two edges
-            // const auto p1 = &m->points[m->sorted_pt_inds[start]];
-            // const auto p2 = &m->points[m->sorted_pt_inds[start + 1]];
-            // const auto p3 = &m->points[m->sorted_pt_inds[start + 2]];
             set_org(m->triangles, midtri, m->sorted_pt_inds[start]);
             set_dest(m->triangles, midtri, m->sorted_pt_inds[start + 1]);
             set_org(m->triangles, tri1, m->sorted_pt_inds[start + 1]);
@@ -502,26 +500,28 @@ static void div_conq_recurse(
     } else {
         const auto divider = len >> 1;
         HEdge innerleft, innerright;
+
         div_conq_recurse(m, 1 - axis, start, start + divider, farleft, innerleft);
         div_conq_recurse(m, 1 - axis, start + divider, end, innerright, farright);
         merge_hulls(m, axis, farleft, innerleft, innerright, farright);
     }
 }
 
-uint32_t*
-triangulate(const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments, uint32_t* n_triangles) {
+uint32_t* triangulate(
+    const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments, uint32_t* n_triangles
+) {
     std::vector<uint32_t> sorted_pt_inds(n_points);
     std::iota(sorted_pt_inds.begin(), sorted_pt_inds.end(), 0);
     std::sort(sorted_pt_inds.begin(), sorted_pt_inds.end(), [points](const uint32_t i, const uint32_t j) {
-        const double* pi = &points[i * 2];
-        const double* pj = &points[j * 2];
+        const double* pi = &points[i << 1];
+        const double* pj = &points[j << 1];
         return pi[0] < pj[0] || (pi[0] == pj[0] && pi[1] < pj[1]);
     });
     {
         const auto it =
             std::unique(sorted_pt_inds.begin(), sorted_pt_inds.end(), [points](const uint32_t i, const uint32_t j) {
-                const double* pi = &points[i * 2];
-                const double* pj = &points[j * 2];
+                const double* pi = &points[i << 1];
+                const double* pj = &points[j << 1];
                 return pi[0] == pj[0] && pi[1] == pj[1];
             });
         sorted_pt_inds.erase(it, sorted_pt_inds.end());
@@ -539,7 +539,7 @@ triangulate(const double* points, uint32_t n_points, const uint32_t* segments, c
     });
     *n_triangles = static_cast<uint32_t>(std::distance(mesh.triangles.begin(), iter));
     auto triangle_indices = std::make_unique<uint32_t[]>(*n_triangles * 3);
-    for(uint32_t i = 0; i < *n_triangles; i++) {
+    for (uint32_t i = 0; i < *n_triangles; i++) {
         auto data = &triangle_indices[i * 3];
         data[0] = mesh.triangles[i].data[0];
         data[1] = mesh.triangles[i].data[1];
@@ -547,4 +547,3 @@ triangulate(const double* points, uint32_t n_points, const uint32_t* segments, c
     }
     return triangle_indices.release();
 }
-

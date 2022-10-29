@@ -114,6 +114,14 @@
 /*****************************************************************************/
 
 #include <math.h>
+#ifdef CPU86
+#include <float.h>
+#endif /* CPU86 */
+#ifdef LINUX
+#include <fpu_control.h>
+#endif /* LINUX */
+
+// #include "tetgen.h"            // Defines the symbol REAL (float or double).
 
 /* On some machines, the exact arithmetic routines might be defeated by the  */
 /*   use of internal extended precision floating-point registers.  Sometimes */
@@ -139,8 +147,8 @@
 /*   which is disastrously slow.  A faster way on IEEE machines might be to  */
 /*   mask the appropriate bit, but that's difficult to do in C.              */
 
-#define Absolute(a)  ((a) >= 0.0 ? (a) : -(a))
-/* #define Absolute(a)  fabs(a) */
+//#define Absolute(a)  ((a) >= 0.0 ? (a) : -(a))
+#define Absolute(a)  fabs(a)
 
 /* Many of the operations are broken up into two pieces, a main part that    */
 /*   performs an approximate operation, and a "tail" that computes the       */
@@ -355,14 +363,24 @@
   Square(a1, _j, _1); \
   Two_Two_Sum(_j, _1, _l, _2, x5, x4, x3, x2)
 
-REAL splitter;     /* = 2^ceiling(p / 2) + 1.  Used to split floats in half. */
-REAL epsilon;                /* = 2^(-p).  Used to estimate roundoff errors. */
+/* splitter = 2^ceiling(p / 2) + 1.  Used to split floats in half.           */
+static REAL splitter;
+static REAL epsilon;         /* = 2^(-p).  Used to estimate roundoff errors. */
 /* A set of coefficients used to calculate maximum roundoff errors.          */
-REAL resulterrbound;
-REAL ccwerrboundA, ccwerrboundB, ccwerrboundC;
-REAL o3derrboundA, o3derrboundB, o3derrboundC;
-REAL iccerrboundA, iccerrboundB, iccerrboundC;
-REAL isperrboundA, isperrboundB, isperrboundC;
+static REAL resulterrbound;
+static REAL ccwerrboundA, ccwerrboundB, ccwerrboundC;
+static REAL o3derrboundA, o3derrboundB, o3derrboundC;
+static REAL iccerrboundA, iccerrboundB, iccerrboundC;
+static REAL isperrboundA, isperrboundB, isperrboundC;
+
+// Options to choose types of geometric computtaions.
+// Added by H. Si, 2012-08-23.
+
+// Static filters for orient3d() and insphere().
+// They are pre-calcualted and set in exactinit().
+// Added by H. Si, 2012-08-23.
+static REAL o3dstaticfilter;
+static REAL ispstaticfilter;
 
 /*****************************************************************************/
 /*                                                                           */
@@ -385,44 +403,88 @@ REAL isperrboundA, isperrboundB, isperrboundC;
 
 void exactinit()
 {
-  REAL half;
-  REAL check, lastcheck;
-  int every_other;
+REAL half;
+REAL check, lastcheck;
+int every_other;
+#ifdef LINUX
+int cword;
+#endif /* LINUX */
 
-  every_other = 1;
-  half = 0.5;
-  epsilon = 1.0;
-  splitter = 1.0;
-  check = 1.0;
-  /* Repeatedly divide `epsilon' by two until it is too small to add to    */
-  /*   one without causing roundoff.  (Also check if the sum is equal to   */
-  /*   the previous sum, for machines that round up instead of using exact */
-  /*   rounding.  Not that this library will work on such machines anyway. */
-  do {
+#ifdef CPU86
+#ifdef SINGLE
+_control87(_PC_24, _MCW_PC); /* Set FPU control word for single precision. */
+#else /* not SINGLE */
+_control87(_PC_53, _MCW_PC); /* Set FPU control word for double precision. */
+#endif /* not SINGLE */
+#endif /* CPU86 */
+#ifdef LINUX
+#ifdef SINGLE
+/*  cword = 4223; */
+cword = 4210;                 /* set FPU control word for single precision */
+#else /* not SINGLE */
+/*  cword = 4735; */
+cword = 4722;                 /* set FPU control word for double precision */
+#endif /* not SINGLE */
+_FPU_SETCW(cword);
+#endif /* LINUX */
+
+every_other = 1;
+half = 0.5;
+epsilon = 1.0;
+splitter = 1.0;
+check = 1.0;
+/* Repeatedly divide `epsilon' by two until it is too small to add to    */
+/*   one without causing roundoff.  (Also check if the sum is equal to   */
+/*   the previous sum, for machines that round up instead of using exact */
+/*   rounding.  Not that this library will work on such machines anyway. */
+do {
     lastcheck = check;
     epsilon *= half;
     if (every_other) {
-      splitter *= 2.0;
+        splitter *= 2.0;
     }
     every_other = !every_other;
     check = 1.0 + epsilon;
-  } while ((check != 1.0) && (check != lastcheck));
-  splitter += 1.0;
+} while ((check != 1.0) && (check != lastcheck));
+splitter += 1.0;
 
-  /* Error bounds for orientation and incircle tests. */
-  resulterrbound = (3.0 + 8.0 * epsilon) * epsilon;
-  ccwerrboundA = (3.0 + 16.0 * epsilon) * epsilon;
-  ccwerrboundB = (2.0 + 12.0 * epsilon) * epsilon;
-  ccwerrboundC = (9.0 + 64.0 * epsilon) * epsilon * epsilon;
-  o3derrboundA = (7.0 + 56.0 * epsilon) * epsilon;
-  o3derrboundB = (3.0 + 28.0 * epsilon) * epsilon;
-  o3derrboundC = (26.0 + 288.0 * epsilon) * epsilon * epsilon;
-  iccerrboundA = (10.0 + 96.0 * epsilon) * epsilon;
-  iccerrboundB = (4.0 + 48.0 * epsilon) * epsilon;
-  iccerrboundC = (44.0 + 576.0 * epsilon) * epsilon * epsilon;
-  isperrboundA = (16.0 + 224.0 * epsilon) * epsilon;
-  isperrboundB = (5.0 + 72.0 * epsilon) * epsilon;
-  isperrboundC = (71.0 + 1408.0 * epsilon) * epsilon * epsilon;
+/* Error bounds for orientation and incircle tests. */
+resulterrbound = (3.0 + 8.0 * epsilon) * epsilon;
+ccwerrboundA = (3.0 + 16.0 * epsilon) * epsilon;
+ccwerrboundB = (2.0 + 12.0 * epsilon) * epsilon;
+ccwerrboundC = (9.0 + 64.0 * epsilon) * epsilon * epsilon;
+o3derrboundA = (7.0 + 56.0 * epsilon) * epsilon;
+o3derrboundB = (3.0 + 28.0 * epsilon) * epsilon;
+o3derrboundC = (26.0 + 288.0 * epsilon) * epsilon * epsilon;
+iccerrboundA = (10.0 + 96.0 * epsilon) * epsilon;
+iccerrboundB = (4.0 + 48.0 * epsilon) * epsilon;
+iccerrboundC = (44.0 + 576.0 * epsilon) * epsilon * epsilon;
+isperrboundA = (16.0 + 224.0 * epsilon) * epsilon;
+isperrboundB = (5.0 + 72.0 * epsilon) * epsilon;
+isperrboundC = (71.0 + 1408.0 * epsilon) * epsilon * epsilon;
+}
+
+void initstaticfilter(REAL maxx, REAL maxy,
+    REAL maxz){
+  // Calculate the two static filters for orient3d() and insphere() tests.
+  // Added by H. Si, 2012-08-23.
+
+  REAL half;
+  // Sort maxx < maxy < maxz. Re-use 'half' for swapping.
+
+  if (maxx > maxz) {
+    half = maxx; maxx = maxz; maxz = half;
+  }
+  if (maxy > maxz) {
+    half = maxy; maxy = maxz; maxz = half;
+  }
+  else if (maxy < maxx) {
+    half = maxy; maxy = maxx; maxx = half;
+  }
+
+  o3dstaticfilter = 5.1107127829973299e-15 * maxx * maxy * maxz;
+  ispstaticfilter = 1.2466136531027298e-13 * maxx * maxy * maxz * (maxz * maxz);
+
 }
 
 /*****************************************************************************/
@@ -438,7 +500,9 @@ void exactinit()
 /*                                                                           */
 /*****************************************************************************/
 
-int grow_expansion(int elen, REAL* e, REAL b, REAL* h) {                /* e and h can be the same. */
+int grow_expansion(int elen, REAL *e, REAL b, REAL *h)
+/* e and h can be the same. */
+{
   REAL Q;
   INEXACT REAL Qnew;
   int eindex;
@@ -470,7 +534,8 @@ int grow_expansion(int elen, REAL* e, REAL b, REAL* h) {                /* e and
 /*                                                                           */
 /*****************************************************************************/
 
-int grow_expansion_zeroelim(int elen, REAL* e, REAL b, REAL* h)       /* e and h can be the same. */
+int grow_expansion_zeroelim(int elen, REAL *e, REAL b, REAL *h)
+/* e and h can be the same. */
 {
   REAL Q, hh;
   INEXACT REAL Qnew;
@@ -508,7 +573,7 @@ int grow_expansion_zeroelim(int elen, REAL* e, REAL b, REAL* h)       /* e and h
 /*                                                                           */
 /*****************************************************************************/
 
-int expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)
+int expansion_sum(int elen, REAL *e, int flen, REAL *f, REAL *h)
 /* e and h can be the same, but f and h cannot. */
 {
   REAL Q;
@@ -552,7 +617,7 @@ int expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)
 /*                                                                           */
 /*****************************************************************************/
 
-int expansion_sum_zeroelim1(int elen, REAL* e, int flen, REAL* f, REAL* h)
+int expansion_sum_zeroelim1(int elen, REAL *e, int flen, REAL *f, REAL *h)
 /* e and h can be the same, but f and h cannot. */
 {
   REAL Q;
@@ -607,7 +672,7 @@ int expansion_sum_zeroelim1(int elen, REAL* e, int flen, REAL* f, REAL* h)
 /*                                                                           */
 /*****************************************************************************/
 
-int expansion_sum_zeroelim2(int elen, REAL* e, int flen, REAL* f, REAL* h)
+int expansion_sum_zeroelim2(int elen, REAL *e, int flen, REAL *f, REAL *h)
 /* e and h can be the same, but f and h cannot. */
 {
   REAL Q, hh;
@@ -659,7 +724,8 @@ int expansion_sum_zeroelim2(int elen, REAL* e, int flen, REAL* f, REAL* h)
 /*                                                                           */
 /*****************************************************************************/
 
-int fast_expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)           /* h cannot be e or f. */
+static int fast_expansion_sum(int elen, REAL *e, int flen, REAL *f, REAL *h)
+/* h cannot be e or f. */
 {
   REAL Q;
   INEXACT REAL Qnew;
@@ -730,8 +796,9 @@ int fast_expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)           
 /*  properties.                                                              */
 /*                                                                           */
 /*****************************************************************************/
-
-int fast_expansion_sum_zeroelim(int elen, REAL* e, int flen, REAL* f, REAL* h)  /* h cannot be e or f. */
+static
+int fast_expansion_sum_zeroelim(int elen, REAL *e, int flen, REAL *f, REAL *h)
+/* h cannot be e or f. */
 {
   REAL Q;
   INEXACT REAL Qnew;
@@ -811,7 +878,8 @@ int fast_expansion_sum_zeroelim(int elen, REAL* e, int flen, REAL* f, REAL* h)  
 /*                                                                           */
 /*****************************************************************************/
 
-int linear_expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)         /* h cannot be e or f. */
+int linear_expansion_sum(int elen, REAL *e, int flen, REAL *f, REAL *h)
+/* h cannot be e or f. */
 {
   REAL Q, q;
   INEXACT REAL Qnew;
@@ -870,7 +938,9 @@ int linear_expansion_sum(int elen, REAL* e, int flen, REAL* f, REAL* h)         
 /*                                                                           */
 /*****************************************************************************/
 
-int linear_expansion_sum_zeroelim(int elen, REAL* e, int flen, REAL* f, REAL* h)/* h cannot be e or f. */
+int linear_expansion_sum_zeroelim(int elen, REAL *e, int flen, REAL *f,
+                                  REAL *h)
+/* h cannot be e or f. */
 {
   REAL Q, q, hh;
   INEXACT REAL Qnew;
@@ -938,8 +1008,9 @@ int linear_expansion_sum_zeroelim(int elen, REAL* e, int flen, REAL* f, REAL* h)
 /*  will h.)                                                                 */
 /*                                                                           */
 /*****************************************************************************/
-
-int scale_expansion(int elen, REAL* e, REAL b, REAL* h)            /* e and h cannot be the same. */
+static
+int scale_expansion(int elen, REAL *e, REAL b, REAL *h)
+/* e and h cannot be the same. */
 {
   INEXACT REAL Q;
   INEXACT REAL sum;
@@ -983,8 +1054,9 @@ int scale_expansion(int elen, REAL* e, REAL b, REAL* h)            /* e and h ca
 /*  will h.)                                                                 */
 /*                                                                           */
 /*****************************************************************************/
-
-int scale_expansion_zeroelim(int elen, REAL* e, REAL b, REAL* h)   /* e and h cannot be the same. */
+static
+int scale_expansion_zeroelim(int elen, REAL *e, REAL b, REAL *h)
+/* e and h cannot be the same. */
 {
   INEXACT REAL Q, sum;
   REAL hh;
@@ -1034,8 +1106,9 @@ int scale_expansion_zeroelim(int elen, REAL* e, REAL b, REAL* h)   /* e and h ca
 /*  nonadjacent expansion.                                                   */
 /*                                                                           */
 /*****************************************************************************/
-
-int compress(int elen, REAL* e, REAL* h)                         /* e and h may be the same. */
+static
+int compress(int elen, REAL *e, REAL *h)
+/* e and h may be the same. */
 {
   REAL Q, q;
   INEXACT REAL Qnew;
@@ -1076,8 +1149,8 @@ int compress(int elen, REAL* e, REAL* h)                         /* e and h may 
 /*  See either version of my paper for details.                              */
 /*                                                                           */
 /*****************************************************************************/
-
-REAL estimate(int elen, REAL* e)
+static
+REAL estimate(int elen, REAL *e)
 {
   REAL Q;
   int eindex;
@@ -1114,8 +1187,8 @@ REAL estimate(int elen, REAL* e)
 /*  nearly so.                                                               */
 /*                                                                           */
 /*****************************************************************************/
-
-REAL orient2dfast(REAL* pa, REAL* pb, REAL* pc)
+static
+REAL orient2dfast(REAL *pa, REAL *pb, REAL *pc)
 {
   REAL acx, bcx, acy, bcy;
 
@@ -1126,7 +1199,8 @@ REAL orient2dfast(REAL* pa, REAL* pb, REAL* pc)
   return acx * bcy - acy * bcx;
 }
 
-REAL orient2dexact(REAL* pa, REAL* pb, REAL* pc)
+//static
+REAL orient2dexact(REAL *pa, REAL *pb, REAL *pc)
 {
   INEXACT REAL axby1, axcy1, bxcy1, bxay1, cxay1, cxby1;
   REAL axby0, axcy0, bxcy0, bxay0, cxay0, cxby0;
@@ -1168,7 +1242,7 @@ REAL orient2dexact(REAL* pa, REAL* pb, REAL* pc)
   return w[wlength - 1];
 }
 
-REAL orient2dslow(REAL* pa, REAL* pb, REAL* pc)
+REAL orient2dslow(REAL *pa, REAL *pb, REAL *pc)
 {
   INEXACT REAL acx, acy, bcx, bcy;
   REAL acxtail, acytail;
@@ -1209,7 +1283,7 @@ REAL orient2dslow(REAL* pa, REAL* pb, REAL* pc)
   return deter[deterlen - 1];
 }
 
-REAL orient2dadapt(REAL* pa, REAL* pb, REAL* pc, REAL detsum)
+REAL orient2dadapt(REAL *pa, REAL *pb, REAL *pc, REAL detsum)
 {
   INEXACT REAL acx, acy, bcx, bcy;
   REAL acxtail, acytail, bcxtail, bcytail;
@@ -1289,7 +1363,7 @@ REAL orient2dadapt(REAL* pa, REAL* pb, REAL* pc, REAL detsum)
   return(D[Dlength - 1]);
 }
 
-REAL orient2d(REAL* pa, REAL* pb, REAL* pc)
+REAL orient2d(REAL *pa, REAL *pb, REAL *pc)
 {
   REAL detleft, detright, det;
   REAL detsum, errbound;
@@ -1351,7 +1425,7 @@ REAL orient2d(REAL* pa, REAL* pb, REAL* pc)
 /*                                                                           */
 /*****************************************************************************/
 
-REAL orient3dfast(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL orient3dfast(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   REAL adx, bdx, cdx;
   REAL ady, bdy, cdy;
@@ -1372,7 +1446,7 @@ REAL orient3dfast(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
        + cdx * (ady * bdz - adz * bdy);
 }
 
-REAL orient3dexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL orient3dexact(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   INEXACT REAL axby1, bxcy1, cxdy1, dxay1, axcy1, bxdy1;
   INEXACT REAL bxay1, cxby1, dxcy1, axdy1, cxay1, dxby1;
@@ -1449,7 +1523,7 @@ REAL orient3dexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   return deter[deterlen - 1];
 }
 
-REAL orient3dslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL orient3dslow(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   INEXACT REAL adx, ady, adz, bdx, bdy, bdz, cdx, cdy, cdz;
   REAL adxtail, adytail, adztail;
@@ -1541,7 +1615,7 @@ REAL orient3dslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   return deter[deterlen - 1];
 }
 
-REAL orient3dadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
+REAL orient3dadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL permanent)
 {
   INEXACT REAL adx, bdx, cdx, ady, bdy, cdy, adz, bdz, cdz;
   REAL det, errbound;
@@ -1557,6 +1631,7 @@ REAL orient3dadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
   REAL *finnow, *finother, *finswap;
   REAL fin1[192], fin2[192];
   int finlength;
+
 
   REAL adxtail, bdxtail, cdxtail;
   REAL adytail, bdytail, cdytail;
@@ -1593,6 +1668,7 @@ REAL orient3dadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
   REAL err1, err2, err3;
   INEXACT REAL _i, _j, _k;
   REAL _0;
+
 
   adx = (REAL) (pa[0] - pd[0]);
   bdx = (REAL) (pb[0] - pd[0]);
@@ -1941,21 +2017,21 @@ REAL orient3dadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
   return finnow[finlength - 1];
 }
 
-REAL orient3d(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL orient3d(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   REAL adx, bdx, cdx, ady, bdy, cdy, adz, bdz, cdz;
   REAL bdxcdy, cdxbdy, cdxady, adxcdy, adxbdy, bdxady;
   REAL det;
-  REAL permanent, errbound;
+
 
   adx = pa[0] - pd[0];
-  bdx = pb[0] - pd[0];
-  cdx = pc[0] - pd[0];
   ady = pa[1] - pd[1];
-  bdy = pb[1] - pd[1];
-  cdy = pc[1] - pd[1];
   adz = pa[2] - pd[2];
+  bdx = pb[0] - pd[0];
+  bdy = pb[1] - pd[1];
   bdz = pb[2] - pd[2];
+  cdx = pc[0] - pd[0];
+  cdy = pc[1] - pd[1];
   cdz = pc[2] - pd[2];
 
   bdxcdy = bdx * cdy;
@@ -1970,6 +2046,12 @@ REAL orient3d(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   det = adz * (bdxcdy - cdxbdy)
       + bdz * (cdxady - adxcdy)
       + cdz * (adxbdy - bdxady);
+
+  if (det > o3dstaticfilter) return det;
+  if (det < -o3dstaticfilter) return det;
+
+
+  REAL permanent, errbound;
 
   permanent = (Absolute(bdxcdy) + Absolute(cdxbdy)) * Absolute(adz)
             + (Absolute(cdxady) + Absolute(adxcdy)) * Absolute(bdz)
@@ -2008,7 +2090,7 @@ REAL orient3d(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
 /*                                                                           */
 /*****************************************************************************/
 
-REAL incirclefast(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL incirclefast(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   REAL adx, ady, bdx, bdy, cdx, cdy;
   REAL abdet, bcdet, cadet;
@@ -2031,7 +2113,7 @@ REAL incirclefast(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   return alift * bcdet + blift * cadet + clift * abdet;
 }
 
-REAL incircleexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL incircleexact(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   INEXACT REAL axby1, bxcy1, cxdy1, dxay1, axcy1, bxdy1;
   INEXACT REAL bxay1, cxby1, dxcy1, axdy1, cxay1, dxby1;
@@ -2129,7 +2211,7 @@ REAL incircleexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   return deter[deterlen - 1];
 }
 
-REAL incircleslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL incircleslow(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   INEXACT REAL adx, bdx, cdx, ady, bdy, cdy;
   REAL adxtail, bdxtail, cdxtail;
@@ -2285,7 +2367,7 @@ REAL incircleslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
   return deter[deterlen - 1];
 }
 
-REAL incircleadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
+REAL incircleadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL permanent)
 {
   INEXACT REAL adx, bdx, cdx, ady, bdy, cdy;
   REAL det, errbound;
@@ -2347,6 +2429,9 @@ REAL incircleadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
   REAL err1, err2, err3;
   INEXACT REAL _i, _j;
   REAL _0;
+
+  // Avoid compiler warnings. H. Si, 2012-02-16.
+  axtbclen = aytbclen = bxtcalen = bytcalen = cxtablen = cytablen = 0;
 
   adx = (REAL) (pa[0] - pd[0]);
   bdx = (REAL) (pb[0] - pd[0]);
@@ -2854,7 +2939,7 @@ REAL incircleadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL permanent)
   return finnow[finlength - 1];
 }
 
-REAL incircle(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
+REAL incircle(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
 {
   REAL adx, bdx, cdx, ady, bdy, cdy;
   REAL bdxcdy, cdxbdy, cdxady, adxcdy, adxbdy, bdxady;
@@ -2923,7 +3008,7 @@ REAL incircle(REAL* pa, REAL* pb, REAL* pc, REAL* pd)
 /*                                                                           */
 /*****************************************************************************/
 
-REAL inspherefast(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
+REAL inspherefast(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe)
 {
   REAL aex, bex, cex, dex;
   REAL aey, bey, cey, dey;
@@ -2966,7 +3051,7 @@ REAL inspherefast(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   return (dlift * abc - clift * dab) + (blift * cda - alift * bcd);
 }
 
-REAL insphereexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
+REAL insphereexact(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe)
 {
   INEXACT REAL axby1, bxcy1, cxdy1, dxey1, exay1;
   INEXACT REAL bxay1, cxby1, dxcy1, exdy1, axey1;
@@ -3009,6 +3094,7 @@ REAL insphereexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   REAL err1, err2, err3;
   INEXACT REAL _i, _j;
   REAL _0;
+
 
   Two_Product(pa[0], pb[1], axby1, axby0);
   Two_Product(pb[0], pa[1], bxay1, bxay0);
@@ -3218,7 +3304,7 @@ REAL insphereexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   return deter[deterlen - 1];
 }
 
-REAL insphereslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
+REAL insphereslow(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe)
 {
   INEXACT REAL aex, bex, cex, dex, aey, bey, cey, dey, aez, bez, cez, dez;
   REAL aextail, bextail, cextail, dextail;
@@ -3547,7 +3633,8 @@ REAL insphereslow(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   return deter[deterlen - 1];
 }
 
-REAL insphereadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe, REAL permanent)
+REAL insphereadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe,
+                   REAL permanent)
 {
   INEXACT REAL aex, bex, cex, dex, aey, bey, cey, dey, aez, bez, cez, dez;
   REAL det, errbound;
@@ -3584,6 +3671,7 @@ REAL insphereadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe, REAL perman
   REAL err1, err2, err3;
   INEXACT REAL _i, _j;
   REAL _0;
+
 
   aex = (REAL) (pa[0] - pe[0]);
   bex = (REAL) (pb[0] - pe[0]);
@@ -3761,7 +3849,7 @@ REAL insphereadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe, REAL perman
   return insphereexact(pa, pb, pc, pd, pe);
 }
 
-REAL insphere(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
+REAL insphere(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe)
 {
   REAL aex, bex, cex, dex;
   REAL aey, bey, cey, dey;
@@ -3771,12 +3859,8 @@ REAL insphere(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   REAL alift, blift, clift, dlift;
   REAL ab, bc, cd, da, ac, bd;
   REAL abc, bcd, cda, dab;
-  REAL aezplus, bezplus, cezplus, dezplus;
-  REAL aexbeyplus, bexaeyplus, bexceyplus, cexbeyplus;
-  REAL cexdeyplus, dexceyplus, dexaeyplus, aexdeyplus;
-  REAL aexceyplus, cexaeyplus, bexdeyplus, dexbeyplus;
   REAL det;
-  REAL permanent, errbound;
+
 
   aex = pa[0] - pe[0];
   bex = pb[0] - pe[0];
@@ -3823,6 +3907,14 @@ REAL insphere(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
 
   det = (dlift * abc - clift * dab) + (blift * cda - alift * bcd);
 
+    if (fabs(det) > ispstaticfilter) return det;
+
+  REAL aezplus, bezplus, cezplus, dezplus;
+  REAL aexbeyplus, bexaeyplus, bexceyplus, cexbeyplus;
+  REAL cexdeyplus, dexceyplus, dexaeyplus, aexdeyplus;
+  REAL aexceyplus, cexaeyplus, bexdeyplus, dexbeyplus;
+  REAL permanent, errbound;
+
   aezplus = Absolute(aez);
   bezplus = Absolute(bez);
   cezplus = Absolute(cez);
@@ -3861,4 +3953,543 @@ REAL insphere(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe)
   }
 
   return insphereadapt(pa, pb, pc, pd, pe, permanent);
+}
+
+/*****************************************************************************/
+/*                                                                           */
+/*  orient4d()   Return a positive value if the point pe lies above the      */
+/*               hyperplane passing through pa, pb, pc, and pd; "above" is   */
+/*               defined in a manner best found by trial-and-error.  Returns */
+/*               a negative value if pe lies below the hyperplane.  Returns  */
+/*               zero if the points are co-hyperplanar (not affinely         */
+/*               independent).  The result is also a rough approximation of  */
+/*               24 times the signed volume of the 4-simplex defined by the  */
+/*               five points.                                                */
+/*                                                                           */
+/*  Uses exact arithmetic if necessary to ensure a correct answer.  The      */
+/*  result returned is the determinant of a matrix.  This determinant is     */
+/*  computed adaptively, in the sense that exact arithmetic is used only to  */
+/*  the degree it is needed to ensure that the returned value has the        */
+/*  correct sign.  Hence, orient4d() is usually quite fast, but will run     */
+/*  more slowly when the input points are hyper-coplanar or nearly so.       */
+/*                                                                           */
+/*  See my Robust Predicates paper for details.                              */
+/*                                                                           */
+/*****************************************************************************/
+//static
+REAL orient4dexact(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe,
+                   REAL aheight, REAL bheight, REAL cheight, REAL dheight,
+                   REAL eheight)
+{
+  INEXACT REAL axby1, bxcy1, cxdy1, dxey1, exay1;
+  INEXACT REAL bxay1, cxby1, dxcy1, exdy1, axey1;
+  INEXACT REAL axcy1, bxdy1, cxey1, dxay1, exby1;
+  INEXACT REAL cxay1, dxby1, excy1, axdy1, bxey1;
+  REAL axby0, bxcy0, cxdy0, dxey0, exay0;
+  REAL bxay0, cxby0, dxcy0, exdy0, axey0;
+  REAL axcy0, bxdy0, cxey0, dxay0, exby0;
+  REAL cxay0, dxby0, excy0, axdy0, bxey0;
+  REAL ab[4], bc[4], cd[4], de[4], ea[4];
+  REAL ac[4], bd[4], ce[4], da[4], eb[4];
+  REAL temp8a[8], temp8b[8], temp16[16];
+  int temp8alen, temp8blen, temp16len;
+  REAL abc[24], bcd[24], cde[24], dea[24], eab[24];
+  REAL abd[24], bce[24], cda[24], deb[24], eac[24];
+  int abclen, bcdlen, cdelen, dealen, eablen;
+  int abdlen, bcelen, cdalen, deblen, eaclen;
+  REAL temp48a[48], temp48b[48];
+  int temp48alen, temp48blen;
+  REAL abcd[96], bcde[96], cdea[96], deab[96], eabc[96];
+  int abcdlen, bcdelen, cdealen, deablen, eabclen;
+  REAL adet[192], bdet[192], cdet[192], ddet[192], edet[192];
+  int alen, blen, clen, dlen, elen;
+  REAL abdet[384], cddet[384], cdedet[576];
+  int ablen, cdlen;
+  REAL deter[960];
+  int deterlen;
+  int i;
+
+  INEXACT REAL bvirt;
+  REAL avirt, bround, around;
+  INEXACT REAL c;
+  INEXACT REAL abig;
+  REAL ahi, alo, bhi, blo;
+  REAL err1, err2, err3;
+  INEXACT REAL _i, _j;
+  REAL _0;
+
+
+  Two_Product(pa[0], pb[1], axby1, axby0);
+  Two_Product(pb[0], pa[1], bxay1, bxay0);
+  Two_Two_Diff(axby1, axby0, bxay1, bxay0, ab[3], ab[2], ab[1], ab[0]);
+
+  Two_Product(pb[0], pc[1], bxcy1, bxcy0);
+  Two_Product(pc[0], pb[1], cxby1, cxby0);
+  Two_Two_Diff(bxcy1, bxcy0, cxby1, cxby0, bc[3], bc[2], bc[1], bc[0]);
+
+  Two_Product(pc[0], pd[1], cxdy1, cxdy0);
+  Two_Product(pd[0], pc[1], dxcy1, dxcy0);
+  Two_Two_Diff(cxdy1, cxdy0, dxcy1, dxcy0, cd[3], cd[2], cd[1], cd[0]);
+
+  Two_Product(pd[0], pe[1], dxey1, dxey0);
+  Two_Product(pe[0], pd[1], exdy1, exdy0);
+  Two_Two_Diff(dxey1, dxey0, exdy1, exdy0, de[3], de[2], de[1], de[0]);
+
+  Two_Product(pe[0], pa[1], exay1, exay0);
+  Two_Product(pa[0], pe[1], axey1, axey0);
+  Two_Two_Diff(exay1, exay0, axey1, axey0, ea[3], ea[2], ea[1], ea[0]);
+
+  Two_Product(pa[0], pc[1], axcy1, axcy0);
+  Two_Product(pc[0], pa[1], cxay1, cxay0);
+  Two_Two_Diff(axcy1, axcy0, cxay1, cxay0, ac[3], ac[2], ac[1], ac[0]);
+
+  Two_Product(pb[0], pd[1], bxdy1, bxdy0);
+  Two_Product(pd[0], pb[1], dxby1, dxby0);
+  Two_Two_Diff(bxdy1, bxdy0, dxby1, dxby0, bd[3], bd[2], bd[1], bd[0]);
+
+  Two_Product(pc[0], pe[1], cxey1, cxey0);
+  Two_Product(pe[0], pc[1], excy1, excy0);
+  Two_Two_Diff(cxey1, cxey0, excy1, excy0, ce[3], ce[2], ce[1], ce[0]);
+
+  Two_Product(pd[0], pa[1], dxay1, dxay0);
+  Two_Product(pa[0], pd[1], axdy1, axdy0);
+  Two_Two_Diff(dxay1, dxay0, axdy1, axdy0, da[3], da[2], da[1], da[0]);
+
+  Two_Product(pe[0], pb[1], exby1, exby0);
+  Two_Product(pb[0], pe[1], bxey1, bxey0);
+  Two_Two_Diff(exby1, exby0, bxey1, bxey0, eb[3], eb[2], eb[1], eb[0]);
+
+  temp8alen = scale_expansion_zeroelim(4, bc, pa[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ac, -pb[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, ab, pc[2], temp8a);
+  abclen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       abc);
+
+  temp8alen = scale_expansion_zeroelim(4, cd, pb[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, bd, -pc[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, bc, pd[2], temp8a);
+  bcdlen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       bcd);
+
+  temp8alen = scale_expansion_zeroelim(4, de, pc[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ce, -pd[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, cd, pe[2], temp8a);
+  cdelen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       cde);
+
+  temp8alen = scale_expansion_zeroelim(4, ea, pd[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, da, -pe[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, de, pa[2], temp8a);
+  dealen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       dea);
+
+  temp8alen = scale_expansion_zeroelim(4, ab, pe[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, eb, -pa[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, ea, pb[2], temp8a);
+  eablen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       eab);
+
+  temp8alen = scale_expansion_zeroelim(4, bd, pa[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, da, pb[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, ab, pd[2], temp8a);
+  abdlen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       abd);
+
+  temp8alen = scale_expansion_zeroelim(4, ce, pb[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, eb, pc[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, bc, pe[2], temp8a);
+  bcelen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       bce);
+
+  temp8alen = scale_expansion_zeroelim(4, da, pc[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ac, pd[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, cd, pa[2], temp8a);
+  cdalen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       cda);
+
+  temp8alen = scale_expansion_zeroelim(4, eb, pd[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, bd, pe[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, de, pb[2], temp8a);
+  deblen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       deb);
+
+  temp8alen = scale_expansion_zeroelim(4, ac, pe[2], temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ce, pa[2], temp8b);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp8blen, temp8b,
+                                          temp16);
+  temp8alen = scale_expansion_zeroelim(4, ea, pc[2], temp8a);
+  eaclen = fast_expansion_sum_zeroelim(temp8alen, temp8a, temp16len, temp16,
+                                       eac);
+
+  temp48alen = fast_expansion_sum_zeroelim(cdelen, cde, bcelen, bce, temp48a);
+  temp48blen = fast_expansion_sum_zeroelim(deblen, deb, bcdlen, bcd, temp48b);
+  for (i = 0; i < temp48blen; i++) {
+    temp48b[i] = -temp48b[i];
+  }
+  bcdelen = fast_expansion_sum_zeroelim(temp48alen, temp48a,
+                                        temp48blen, temp48b, bcde);
+  alen = scale_expansion_zeroelim(bcdelen, bcde, aheight, adet);
+
+  temp48alen = fast_expansion_sum_zeroelim(dealen, dea, cdalen, cda, temp48a);
+  temp48blen = fast_expansion_sum_zeroelim(eaclen, eac, cdelen, cde, temp48b);
+  for (i = 0; i < temp48blen; i++) {
+    temp48b[i] = -temp48b[i];
+  }
+  cdealen = fast_expansion_sum_zeroelim(temp48alen, temp48a,
+                                        temp48blen, temp48b, cdea);
+  blen = scale_expansion_zeroelim(cdealen, cdea, bheight, bdet);
+
+  temp48alen = fast_expansion_sum_zeroelim(eablen, eab, deblen, deb, temp48a);
+  temp48blen = fast_expansion_sum_zeroelim(abdlen, abd, dealen, dea, temp48b);
+  for (i = 0; i < temp48blen; i++) {
+    temp48b[i] = -temp48b[i];
+  }
+  deablen = fast_expansion_sum_zeroelim(temp48alen, temp48a,
+                                        temp48blen, temp48b, deab);
+  clen = scale_expansion_zeroelim(deablen, deab, cheight, cdet);
+
+  temp48alen = fast_expansion_sum_zeroelim(abclen, abc, eaclen, eac, temp48a);
+  temp48blen = fast_expansion_sum_zeroelim(bcelen, bce, eablen, eab, temp48b);
+  for (i = 0; i < temp48blen; i++) {
+    temp48b[i] = -temp48b[i];
+  }
+  eabclen = fast_expansion_sum_zeroelim(temp48alen, temp48a,
+                                        temp48blen, temp48b, eabc);
+  dlen = scale_expansion_zeroelim(eabclen, eabc, dheight, ddet);
+
+  temp48alen = fast_expansion_sum_zeroelim(bcdlen, bcd, abdlen, abd, temp48a);
+  temp48blen = fast_expansion_sum_zeroelim(cdalen, cda, abclen, abc, temp48b);
+  for (i = 0; i < temp48blen; i++) {
+    temp48b[i] = -temp48b[i];
+  }
+  abcdlen = fast_expansion_sum_zeroelim(temp48alen, temp48a,
+                                        temp48blen, temp48b, abcd);
+  elen = scale_expansion_zeroelim(abcdlen, abcd, eheight, edet);
+
+  ablen = fast_expansion_sum_zeroelim(alen, adet, blen, bdet, abdet);
+  cdlen = fast_expansion_sum_zeroelim(clen, cdet, dlen, ddet, cddet);
+  cdelen = fast_expansion_sum_zeroelim(cdlen, cddet, elen, edet, cdedet);
+  deterlen = fast_expansion_sum_zeroelim(ablen, abdet, cdelen, cdedet, deter);
+
+  return deter[deterlen - 1];
+}
+
+static
+REAL orient4dadapt(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe,
+                   REAL aheight, REAL bheight, REAL cheight, REAL dheight,
+                   REAL eheight, REAL permanent)
+{
+  INEXACT REAL aex, bex, cex, dex, aey, bey, cey, dey, aez, bez, cez, dez;
+  INEXACT REAL aeheight, beheight, ceheight, deheight;
+  REAL det, errbound;
+
+  INEXACT REAL aexbey1, bexaey1, bexcey1, cexbey1;
+  INEXACT REAL cexdey1, dexcey1, dexaey1, aexdey1;
+  INEXACT REAL aexcey1, cexaey1, bexdey1, dexbey1;
+  REAL aexbey0, bexaey0, bexcey0, cexbey0;
+  REAL cexdey0, dexcey0, dexaey0, aexdey0;
+  REAL aexcey0, cexaey0, bexdey0, dexbey0;
+  REAL ab[4], bc[4], cd[4], da[4], ac[4], bd[4];
+  INEXACT REAL ab3, bc3, cd3, da3, ac3, bd3;
+  REAL abeps, bceps, cdeps, daeps, aceps, bdeps;
+  REAL temp8a[8], temp8b[8], temp8c[8], temp16[16], temp24[24];
+  int temp8alen, temp8blen, temp8clen, temp16len, temp24len;
+  REAL adet[48], bdet[48], cdet[48], ddet[48];
+  int alen, blen, clen, dlen;
+  REAL abdet[96], cddet[96];
+  int ablen, cdlen;
+  REAL fin1[192];
+  int finlength;
+
+  REAL aextail, bextail, cextail, dextail;
+  REAL aeytail, beytail, ceytail, deytail;
+  REAL aeztail, beztail, ceztail, deztail;
+  REAL aeheighttail, beheighttail, ceheighttail, deheighttail;
+
+  INEXACT REAL bvirt;
+  REAL avirt, bround, around;
+  INEXACT REAL c;
+  INEXACT REAL abig;
+  REAL ahi, alo, bhi, blo;
+  REAL err1, err2, err3;
+  INEXACT REAL _i, _j;
+  REAL _0;
+
+
+  aex = (REAL) (pa[0] - pe[0]);
+  bex = (REAL) (pb[0] - pe[0]);
+  cex = (REAL) (pc[0] - pe[0]);
+  dex = (REAL) (pd[0] - pe[0]);
+  aey = (REAL) (pa[1] - pe[1]);
+  bey = (REAL) (pb[1] - pe[1]);
+  cey = (REAL) (pc[1] - pe[1]);
+  dey = (REAL) (pd[1] - pe[1]);
+  aez = (REAL) (pa[2] - pe[2]);
+  bez = (REAL) (pb[2] - pe[2]);
+  cez = (REAL) (pc[2] - pe[2]);
+  dez = (REAL) (pd[2] - pe[2]);
+  aeheight = (REAL) (aheight - eheight);
+  beheight = (REAL) (bheight - eheight);
+  ceheight = (REAL) (cheight - eheight);
+  deheight = (REAL) (dheight - eheight);
+
+  Two_Product(aex, bey, aexbey1, aexbey0);
+  Two_Product(bex, aey, bexaey1, bexaey0);
+  Two_Two_Diff(aexbey1, aexbey0, bexaey1, bexaey0, ab3, ab[2], ab[1], ab[0]);
+  ab[3] = ab3;
+
+  Two_Product(bex, cey, bexcey1, bexcey0);
+  Two_Product(cex, bey, cexbey1, cexbey0);
+  Two_Two_Diff(bexcey1, bexcey0, cexbey1, cexbey0, bc3, bc[2], bc[1], bc[0]);
+  bc[3] = bc3;
+
+  Two_Product(cex, dey, cexdey1, cexdey0);
+  Two_Product(dex, cey, dexcey1, dexcey0);
+  Two_Two_Diff(cexdey1, cexdey0, dexcey1, dexcey0, cd3, cd[2], cd[1], cd[0]);
+  cd[3] = cd3;
+
+  Two_Product(dex, aey, dexaey1, dexaey0);
+  Two_Product(aex, dey, aexdey1, aexdey0);
+  Two_Two_Diff(dexaey1, dexaey0, aexdey1, aexdey0, da3, da[2], da[1], da[0]);
+  da[3] = da3;
+
+  Two_Product(aex, cey, aexcey1, aexcey0);
+  Two_Product(cex, aey, cexaey1, cexaey0);
+  Two_Two_Diff(aexcey1, aexcey0, cexaey1, cexaey0, ac3, ac[2], ac[1], ac[0]);
+  ac[3] = ac3;
+
+  Two_Product(bex, dey, bexdey1, bexdey0);
+  Two_Product(dex, bey, dexbey1, dexbey0);
+  Two_Two_Diff(bexdey1, bexdey0, dexbey1, dexbey0, bd3, bd[2], bd[1], bd[0]);
+  bd[3] = bd3;
+
+  temp8alen = scale_expansion_zeroelim(4, cd, bez, temp8a);
+  temp8blen = scale_expansion_zeroelim(4, bd, -cez, temp8b);
+  temp8clen = scale_expansion_zeroelim(4, bc, dez, temp8c);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a,
+                                          temp8blen, temp8b, temp16);
+  temp24len = fast_expansion_sum_zeroelim(temp8clen, temp8c,
+                                          temp16len, temp16, temp24);
+  alen = scale_expansion_zeroelim(temp24len, temp24, -aeheight, adet);
+
+  temp8alen = scale_expansion_zeroelim(4, da, cez, temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ac, dez, temp8b);
+  temp8clen = scale_expansion_zeroelim(4, cd, aez, temp8c);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a,
+                                          temp8blen, temp8b, temp16);
+  temp24len = fast_expansion_sum_zeroelim(temp8clen, temp8c,
+                                          temp16len, temp16, temp24);
+  blen = scale_expansion_zeroelim(temp24len, temp24, beheight, bdet);
+
+  temp8alen = scale_expansion_zeroelim(4, ab, dez, temp8a);
+  temp8blen = scale_expansion_zeroelim(4, bd, aez, temp8b);
+  temp8clen = scale_expansion_zeroelim(4, da, bez, temp8c);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a,
+                                          temp8blen, temp8b, temp16);
+  temp24len = fast_expansion_sum_zeroelim(temp8clen, temp8c,
+                                          temp16len, temp16, temp24);
+  clen = scale_expansion_zeroelim(temp24len, temp24, -ceheight, cdet);
+
+  temp8alen = scale_expansion_zeroelim(4, bc, aez, temp8a);
+  temp8blen = scale_expansion_zeroelim(4, ac, -bez, temp8b);
+  temp8clen = scale_expansion_zeroelim(4, ab, cez, temp8c);
+  temp16len = fast_expansion_sum_zeroelim(temp8alen, temp8a,
+                                          temp8blen, temp8b, temp16);
+  temp24len = fast_expansion_sum_zeroelim(temp8clen, temp8c,
+                                          temp16len, temp16, temp24);
+  dlen = scale_expansion_zeroelim(temp24len, temp24, deheight, ddet);
+
+  ablen = fast_expansion_sum_zeroelim(alen, adet, blen, bdet, abdet);
+  cdlen = fast_expansion_sum_zeroelim(clen, cdet, dlen, ddet, cddet);
+  finlength = fast_expansion_sum_zeroelim(ablen, abdet, cdlen, cddet, fin1);
+
+  det = estimate(finlength, fin1);
+  errbound = isperrboundB * permanent;
+  if ((det >= errbound) || (-det >= errbound)) {
+    return det;
+  }
+
+  Two_Diff_Tail(pa[0], pe[0], aex, aextail);
+  Two_Diff_Tail(pa[1], pe[1], aey, aeytail);
+  Two_Diff_Tail(pa[2], pe[2], aez, aeztail);
+  Two_Diff_Tail(aheight, eheight, aeheight, aeheighttail);
+  Two_Diff_Tail(pb[0], pe[0], bex, bextail);
+  Two_Diff_Tail(pb[1], pe[1], bey, beytail);
+  Two_Diff_Tail(pb[2], pe[2], bez, beztail);
+  Two_Diff_Tail(bheight, eheight, beheight, beheighttail);
+  Two_Diff_Tail(pc[0], pe[0], cex, cextail);
+  Two_Diff_Tail(pc[1], pe[1], cey, ceytail);
+  Two_Diff_Tail(pc[2], pe[2], cez, ceztail);
+  Two_Diff_Tail(cheight, eheight, ceheight, ceheighttail);
+  Two_Diff_Tail(pd[0], pe[0], dex, dextail);
+  Two_Diff_Tail(pd[1], pe[1], dey, deytail);
+  Two_Diff_Tail(pd[2], pe[2], dez, deztail);
+  Two_Diff_Tail(dheight, eheight, deheight, deheighttail);
+  if ((aextail == 0.0) && (aeytail == 0.0) && (aeztail == 0.0)
+      && (bextail == 0.0) && (beytail == 0.0) && (beztail == 0.0)
+      && (cextail == 0.0) && (ceytail == 0.0) && (ceztail == 0.0)
+      && (dextail == 0.0) && (deytail == 0.0) && (deztail == 0.0)
+      && (aeheighttail == 0.0) && (beheighttail == 0.0)
+      && (ceheighttail == 0.0) && (deheighttail == 0.0)) {
+    return det;
+  }
+
+  errbound = isperrboundC * permanent + resulterrbound * Absolute(det);
+  abeps = (aex * beytail + bey * aextail)
+        - (aey * bextail + bex * aeytail);
+  bceps = (bex * ceytail + cey * bextail)
+        - (bey * cextail + cex * beytail);
+  cdeps = (cex * deytail + dey * cextail)
+        - (cey * dextail + dex * ceytail);
+  daeps = (dex * aeytail + aey * dextail)
+        - (dey * aextail + aex * deytail);
+  aceps = (aex * ceytail + cey * aextail)
+        - (aey * cextail + cex * aeytail);
+  bdeps = (bex * deytail + dey * bextail)
+        - (bey * dextail + dex * beytail);
+  det += ((beheight
+           * ((cez * daeps + dez * aceps + aez * cdeps)
+              + (ceztail * da3 + deztail * ac3 + aeztail * cd3))
+           + deheight
+           * ((aez * bceps - bez * aceps + cez * abeps)
+              + (aeztail * bc3 - beztail * ac3 + ceztail * ab3)))
+          - (aeheight
+           * ((bez * cdeps - cez * bdeps + dez * bceps)
+              + (beztail * cd3 - ceztail * bd3 + deztail * bc3))
+           + ceheight
+           * ((dez * abeps + aez * bdeps + bez * daeps)
+              + (deztail * ab3 + aeztail * bd3 + beztail * da3))))
+       + ((beheighttail * (cez * da3 + dez * ac3 + aez * cd3)
+           + deheighttail * (aez * bc3 - bez * ac3 + cez * ab3))
+          - (aeheighttail * (bez * cd3 - cez * bd3 + dez * bc3)
+           + ceheighttail * (dez * ab3 + aez * bd3 + bez * da3)));
+  if ((det >= errbound) || (-det >= errbound)) {
+    return det;
+  }
+
+  return orient4dexact(pa, pb, pc, pd, pe,
+                       aheight, bheight, cheight, dheight, eheight);
+}
+
+REAL orient4d(REAL* pa, REAL* pb, REAL* pc, REAL* pd, REAL* pe,
+              REAL aheight, REAL bheight, REAL cheight, REAL dheight,
+              REAL eheight)
+{
+ REAL aex, bex, cex, dex;
+ REAL aey, bey, cey, dey;
+ REAL aez, bez, cez, dez;
+ REAL aexbey, bexaey, bexcey, cexbey, cexdey, dexcey, dexaey, aexdey;
+ REAL aexcey, cexaey, bexdey, dexbey;
+ REAL aeheight, beheight, ceheight, deheight;
+ REAL ab, bc, cd, da, ac, bd;
+ REAL abc, bcd, cda, dab;
+ REAL aezplus, bezplus, cezplus, dezplus;
+ REAL aexbeyplus, bexaeyplus, bexceyplus, cexbeyplus;
+ REAL cexdeyplus, dexceyplus, dexaeyplus, aexdeyplus;
+ REAL aexceyplus, cexaeyplus, bexdeyplus, dexbeyplus;
+ REAL det;
+ REAL permanent, errbound;
+
+
+ aex = pa[0] - pe[0];
+ bex = pb[0] - pe[0];
+ cex = pc[0] - pe[0];
+ dex = pd[0] - pe[0];
+ aey = pa[1] - pe[1];
+ bey = pb[1] - pe[1];
+ cey = pc[1] - pe[1];
+ dey = pd[1] - pe[1];
+ aez = pa[2] - pe[2];
+ bez = pb[2] - pe[2];
+ cez = pc[2] - pe[2];
+ dez = pd[2] - pe[2];
+ aeheight = aheight - eheight;
+ beheight = bheight - eheight;
+ ceheight = cheight - eheight;
+ deheight = dheight - eheight;
+
+ aexbey = aex * bey;
+ bexaey = bex * aey;
+ ab = aexbey - bexaey;
+ bexcey = bex * cey;
+ cexbey = cex * bey;
+ bc = bexcey - cexbey;
+ cexdey = cex * dey;
+ dexcey = dex * cey;
+ cd = cexdey - dexcey;
+ dexaey = dex * aey;
+ aexdey = aex * dey;
+ da = dexaey - aexdey;
+
+ aexcey = aex * cey;
+ cexaey = cex * aey;
+ ac = aexcey - cexaey;
+ bexdey = bex * dey;
+ dexbey = dex * bey;
+ bd = bexdey - dexbey;
+
+ abc = aez * bc - bez * ac + cez * ab;
+ bcd = bez * cd - cez * bd + dez * bc;
+ cda = cez * da + dez * ac + aez * cd;
+ dab = dez * ab + aez * bd + bez * da;
+
+ det = (deheight * abc - ceheight * dab) + (beheight * cda - aeheight * bcd);
+
+ aezplus = Absolute(aez);
+ bezplus = Absolute(bez);
+ cezplus = Absolute(cez);
+ dezplus = Absolute(dez);
+ aexbeyplus = Absolute(aexbey);
+ bexaeyplus = Absolute(bexaey);
+ bexceyplus = Absolute(bexcey);
+ cexbeyplus = Absolute(cexbey);
+ cexdeyplus = Absolute(cexdey);
+ dexceyplus = Absolute(dexcey);
+ dexaeyplus = Absolute(dexaey);
+ aexdeyplus = Absolute(aexdey);
+ aexceyplus = Absolute(aexcey);
+ cexaeyplus = Absolute(cexaey);
+ bexdeyplus = Absolute(bexdey);
+ dexbeyplus = Absolute(dexbey);
+ permanent = ((cexdeyplus + dexceyplus) * bezplus
+              + (dexbeyplus + bexdeyplus) * cezplus
+              + (bexceyplus + cexbeyplus) * dezplus)
+           * Absolute(aeheight)
+           + ((dexaeyplus + aexdeyplus) * cezplus
+              + (aexceyplus + cexaeyplus) * dezplus
+              + (cexdeyplus + dexceyplus) * aezplus)
+           * Absolute(beheight)
+           + ((aexbeyplus + bexaeyplus) * dezplus
+              + (bexdeyplus + dexbeyplus) * aezplus
+              + (dexaeyplus + aexdeyplus) * bezplus)
+           * Absolute(ceheight)
+           + ((bexceyplus + cexbeyplus) * aezplus
+              + (cexaeyplus + aexceyplus) * bezplus
+              + (aexbeyplus + bexaeyplus) * cezplus)
+           * Absolute(deheight);
+ errbound = isperrboundA * permanent;
+ if ((det > errbound) || (-det > errbound)) {
+   return det;
+ }
+
+ return orient4dadapt(pa, pb, pc, pd, pe,
+                      aheight, bheight, cheight, dheight, eheight, permanent);
 }
