@@ -26,7 +26,6 @@ struct Triangle {
 
 struct Mesh {
     const double* points;
-    const std::vector<uint32_t>& sorted_pt_inds;
     std::vector<Triangle> triangles;
 };
 
@@ -124,53 +123,53 @@ inline double incircle(const double* points, const uint32_t a, const uint32_t b,
 }
 
 inline void
-merge_hulls(Mesh* m, const uint32_t axis, HEdge& farleft, HEdge& innerleft, HEdge& innerright, HEdge& farright) {
-    uint32_t innerleftdest = dest(m, innerleft);
-    uint32_t innerleftapex = apex(m, innerleft);
-    uint32_t innerrightorg = org(m, innerright);
-    uint32_t innerrightapex = apex(m, innerright);
-    uint32_t farleftpt, farleftapex, farrightpt, farrightapex;
+merge_hulls(Mesh* m, const uint32_t axis, HEdge& far_left, HEdge& inner_left, HEdge& inner_right, HEdge& far_right) {
+    uint32_t inner_left_dest = dest(m, inner_left);
+    uint32_t inner_left_apex = apex(m, inner_left);
+    uint32_t inner_right_org = org(m, inner_right);
+    uint32_t inner_right_apex = apex(m, inner_right);
+    uint32_t far_left_pt, far_left_apex, far_right_pt, far_right_apex;
     // Special treatment for horizontal cuts
     if (axis == 1) {
-        farleftpt = org(m, farleft);
-        farleftapex = apex(m, farleft);
-        farrightpt = dest(m, farright);
-        farrightapex = apex(m, farright);
+        far_left_pt = org(m, far_left);
+        far_left_apex = apex(m, far_left);
+        far_right_pt = dest(m, far_right);
+        far_right_apex = apex(m, far_right);
         // The pointers to the extremal vertices are shifted to point to the
         // topmost and bottommost vertex of each hull, rather than the
         // leftmost and rightmost vertices.
-        while (point(m->points, farleftapex)[1] < point(m->points, farleftpt)[1]) {
-            next_self(farleft);
-            sym_self(m->triangles, farleft);
-            farleftpt = farleftapex;
-            farleftapex = apex(m, farleft);
+        while (point(m->points, far_left_apex)[1] < point(m->points, far_left_pt)[1]) {
+            next_self(far_left);
+            sym_self(m->triangles, far_left);
+            far_left_pt = far_left_apex;
+            far_left_apex = apex(m, far_left);
         }
 
         HEdge check_edge;
-        sym(m->triangles, innerleft, check_edge);
+        sym(m->triangles, inner_left, check_edge);
         uint32_t check_vertex = apex(m, check_edge);
-        while (point(m->points, check_vertex)[1] > point(m->points, innerleftdest)[1]) {
-            next(check_edge, innerleft);
-            innerleftapex = innerleftdest;
-            innerleftdest = check_vertex;
-            sym(m->triangles, innerleft, check_edge);
+        while (point(m->points, check_vertex)[1] > point(m->points, inner_left_dest)[1]) {
+            next(check_edge, inner_left);
+            inner_left_apex = inner_left_dest;
+            inner_left_dest = check_vertex;
+            sym(m->triangles, inner_left, check_edge);
             check_vertex = apex(m, check_edge);
         }
 
-        while (point(m->points, innerrightapex)[1] < point(m->points, innerrightorg)[1]) {
-            next_self(innerright);
-            sym_self(m->triangles, innerright);
-            innerrightorg = innerrightapex;
-            innerrightapex = apex(m, innerright);
+        while (point(m->points, inner_right_apex)[1] < point(m->points, inner_right_org)[1]) {
+            next_self(inner_right);
+            sym_self(m->triangles, inner_right);
+            inner_right_org = inner_right_apex;
+            inner_right_apex = apex(m, inner_right);
         }
 
-        sym(m->triangles, farright, check_edge);
+        sym(m->triangles, far_right, check_edge);
         check_vertex = apex(m, check_edge);
-        while (point(m->points, check_vertex)[1] > point(m->points, farrightpt)[1]) {
-            next(check_edge, farright);
-            farrightapex = farrightpt;
-            farrightpt = check_vertex;
-            sym(m->triangles, farright, check_edge);
+        while (point(m->points, check_vertex)[1] > point(m->points, far_right_pt)[1]) {
+            next(check_edge, far_right);
+            far_right_apex = far_right_pt;
+            far_right_pt = check_vertex;
+            sym(m->triangles, far_right, check_edge);
             check_vertex = apex(m, check_edge);
         }
     }
@@ -180,256 +179,256 @@ merge_hulls(Mesh* m, const uint32_t axis, HEdge& farleft, HEdge& innerleft, HEdg
     while (change_made) {
         change_made = false;
         // Make innerleftdest the "bottommost" vertex of the left hull
-        if (counterclockwise(m->points, innerleftdest, innerleftapex, innerrightorg) > 0.0) {
-            prev_self(innerleft);
-            sym_self(m->triangles, innerleft);
-            innerleftdest = innerleftapex;
-            innerleftapex = apex(m, innerleft);
+        if (counterclockwise(m->points, inner_left_dest, inner_left_apex, inner_right_org) > 0.0) {
+            prev_self(inner_left);
+            sym_self(m->triangles, inner_left);
+            inner_left_dest = inner_left_apex;
+            inner_left_apex = apex(m, inner_left);
             change_made = true;
         }
         // Make innerrightorg the "bottommost" vertex of the right hull
-        if (counterclockwise(m->points, innerrightapex, innerrightorg, innerleftdest) > 0.0) {
-            next_self(innerright);
-            sym_self(m->triangles, innerright);
-            innerrightorg = innerrightapex;
-            innerrightapex = apex(m, innerright);
+        if (counterclockwise(m->points, inner_right_apex, inner_right_org, inner_left_dest) > 0.0) {
+            next_self(inner_right);
+            sym_self(m->triangles, inner_right);
+            inner_right_org = inner_right_apex;
+            inner_right_apex = apex(m, inner_right);
             change_made = true;
         }
     }
 
     // Find the two candidates to be the next "gear tooth"
-    HEdge leftcand, rightcand, baseedge;
-    sym(m->triangles, innerleft, leftcand);
-    sym(m->triangles, innerright, rightcand);
+    HEdge left_cand, right_cand, base_edge;
+    sym(m->triangles, inner_left, left_cand);
+    sym(m->triangles, inner_right, right_cand);
     // Create the bottom new bounding triangle
-    make_triangle(m->triangles, baseedge);
-    /* Connect it to the bounding boxes of the left and right triangulations. */
-    bond(m->triangles, baseedge, innerleft);
-    next_self(baseedge);
-    bond(m->triangles, baseedge, innerright);
-    next_self(baseedge);
-    set_org(m->triangles, baseedge, innerrightorg);
-    set_dest(m->triangles, baseedge, innerleftdest);
+    make_triangle(m->triangles, base_edge);
+    // Connect it to the bounding boxes of the left and right triangulations.
+    bond(m->triangles, base_edge, inner_left);
+    next_self(base_edge);
+    bond(m->triangles, base_edge, inner_right);
+    next_self(base_edge);
+    set_org(m->triangles, base_edge, inner_right_org);
+    set_dest(m->triangles, base_edge, inner_left_dest);
 
 
     // Fix the extreme triangles if necessary
-    farleftpt = org(m, farleft);
-    if (innerleftdest == farleftpt) {
-        next(baseedge, farleft);
+    far_left_pt = org(m, far_left);
+    if (inner_left_dest == far_left_pt) {
+        next(base_edge, far_left);
     }
-    farrightpt = dest(m, farright);
-    if (innerrightorg == farrightpt) {
-        prev(baseedge, farright);
+    far_right_pt = dest(m, far_right);
+    if (inner_right_org == far_right_pt) {
+        prev(base_edge, far_right);
     }
 
     // The vertices of the current knitting edge
-    uint32_t lowerleft = innerleftdest;
-    uint32_t lowerright = innerrightorg;
+    uint32_t lower_left = inner_left_dest;
+    uint32_t lower_right = inner_right_org;
     // The candidate vertices for knitting
-    uint32_t upperleft = apex(m, leftcand);
-    uint32_t upperright = apex(m, rightcand);
+    uint32_t upper_left = apex(m, left_cand);
+    uint32_t upper_right = apex(m, right_cand);
     // Walk up the gap between the two triangulations, knitting them together
     while (true) {
-        const auto leftfinished = counterclockwise(m->points, upperleft, lowerleft, lowerright) <= 0.0;
-        const auto rightfinished = counterclockwise(m->points, upperright, lowerleft, lowerright) <= 0.0;
-        HEdge checkedge, nextedge;
-        if (leftfinished && rightfinished) {
+        const auto left_finished = counterclockwise(m->points, upper_left, lower_left, lower_right) <= 0.0;
+        const auto right_finished = counterclockwise(m->points, upper_right, lower_left, lower_right) <= 0.0;
+        HEdge check_edge, next_edge;
+        if (left_finished && right_finished) {
             // Create the top new bounding triangle
-            make_triangle(m->triangles, nextedge);
-            set_org(m->triangles, nextedge, lowerleft);
-            set_dest(m->triangles, nextedge, lowerright);
+            make_triangle(m->triangles, next_edge);
+            set_org(m->triangles, next_edge, lower_left);
+            set_dest(m->triangles, next_edge, lower_right);
             // Apex is intentionally left INVALID
             // Connect it to the bounding boxes of the two triangulations
-            bond(m->triangles, nextedge, baseedge);
-            next_self(nextedge);
-            bond(m->triangles, nextedge, rightcand);
-            next_self(nextedge);
-            bond(m->triangles, nextedge, leftcand);
+            bond(m->triangles, next_edge, base_edge);
+            next_self(next_edge);
+            bond(m->triangles, next_edge, right_cand);
+            next_self(next_edge);
+            bond(m->triangles, next_edge, left_cand);
 
             // Special treatment for horizontal cuts
             if (axis == 1) {
-                farleftpt = org(m, farleft);
-                farleftapex = apex(m, farleft);
-                farrightpt = dest(m, farright);
-                farrightapex = apex(m, farright);
-                sym(m->triangles, farleft, checkedge);
-                uint32_t checkvertex = apex(m, checkedge);
+                far_left_pt = org(m, far_left);
+                far_left_apex = apex(m, far_left);
+                far_right_pt = dest(m, far_right);
+                far_right_apex = apex(m, far_right);
+                sym(m->triangles, far_left, check_edge);
+                uint32_t check_vertex = apex(m, check_edge);
                 // The pointers to the extremal vertices are restored to the
                 // leftmost and rightmost vertices (rather than topmost and
                 // bottommost)
-                while (point(m->points, checkvertex)[0] < point(m->points, farleftpt)[0]) {
-                    prev(checkedge, farleft);
-                    farleftapex = farleftpt;
-                    farleftpt = checkvertex;
-                    sym(m->triangles, farleft, checkedge);
-                    checkvertex = apex(m, checkedge);
+                while (point(m->points, check_vertex)[0] < point(m->points, far_left_pt)[0]) {
+                    prev(check_edge, far_left);
+                    far_left_apex = far_left_pt;
+                    far_left_pt = check_vertex;
+                    sym(m->triangles, far_left, check_edge);
+                    check_vertex = apex(m, check_edge);
                 }
-                while (point(m->points, farrightapex)[0] > point(m->points, farrightpt)[0]) {
-                    prev_self(farright);
-                    sym_self(m->triangles, farright);
-                    farrightpt = farrightapex;
-                    farrightapex = apex(m, farright);
+                while (point(m->points, far_right_apex)[0] > point(m->points, far_right_pt)[0]) {
+                    prev_self(far_right);
+                    sym_self(m->triangles, far_right);
+                    far_right_pt = far_right_apex;
+                    far_right_apex = apex(m, far_right);
                 }
             }
             return;
         }
 
         // Consider eliminating edges from the left triangulation
-        if (!leftfinished) {
+        if (!left_finished) {
             // What vertex would be exposed if an edge were deleted
-            prev(leftcand, nextedge);
-            sym_self(m->triangles, nextedge);
-            uint32_t nextapex = apex(m, nextedge);
+            prev(left_cand, next_edge);
+            sym_self(m->triangles, next_edge);
+            uint32_t next_apex = apex(m, next_edge);
             // If nextapex is INVALID, then no vertex would be exposed; the
             // triangulation would have been eaten right through.
-            if (nextapex != INVALID) {
+            if (next_apex != INVALID) {
                 // Check whether the edge is Delaunay
-                auto badedge = incircle(m->points, lowerleft, lowerright, upperleft, nextapex) > 0.0;
-                HEdge topcasing, sidecasing, outercasing;
-                while (badedge) {
+                auto bad_edge = incircle(m->points, lower_left, lower_right, upper_left, next_apex) > 0.0;
+                HEdge top_casing, side_casing, outer_casing;
+                while (bad_edge) {
                     // Eliminate the edge with an edge flip.  As a result, the
                     // left triangulation will have one more boundary triangle.
-                    next_self(nextedge);
-                    sym(m->triangles, nextedge, topcasing);
-                    next_self(nextedge);
-                    sym(m->triangles, nextedge, sidecasing);
-                    bond(m->triangles, nextedge, topcasing);
-                    bond(m->triangles, leftcand, sidecasing);
-                    next_self(leftcand);
-                    sym(m->triangles, leftcand, outercasing);
-                    prev_self(nextedge);
-                    bond(m->triangles, nextedge, outercasing);
+                    next_self(next_edge);
+                    sym(m->triangles, next_edge, top_casing);
+                    next_self(next_edge);
+                    sym(m->triangles, next_edge, side_casing);
+                    bond(m->triangles, next_edge, top_casing);
+                    bond(m->triangles, left_cand, side_casing);
+                    next_self(left_cand);
+                    sym(m->triangles, left_cand, outer_casing);
+                    prev_self(next_edge);
+                    bond(m->triangles, next_edge, outer_casing);
                     // Correct the vertices to reflect the edge flip
-                    set_org(m->triangles, leftcand, lowerleft);
-                    set_dest(m->triangles, leftcand, INVALID);
-                    set_apex(m->triangles, leftcand, nextapex);
-                    set_org(m->triangles, nextedge, INVALID);
-                    set_dest(m->triangles, nextedge, upperleft);
-                    set_apex(m->triangles, nextedge, nextapex);
+                    set_org(m->triangles, left_cand, lower_left);
+                    set_dest(m->triangles, left_cand, INVALID);
+                    set_apex(m->triangles, left_cand, next_apex);
+                    set_org(m->triangles, next_edge, INVALID);
+                    set_dest(m->triangles, next_edge, upper_left);
+                    set_apex(m->triangles, next_edge, next_apex);
                     // Consider the newly exposed vertex
-                    upperleft = nextapex;
+                    upper_left = next_apex;
                     // What vertex would be exposed if another edge were deleted?
-                    copy(sidecasing, nextedge);
-                    nextapex = apex(m, nextedge);
-                    if (nextapex != INVALID) {
+                    copy(side_casing, next_edge);
+                    next_apex = apex(m, next_edge);
+                    if (next_apex != INVALID) {
                         // Check whether the edge is Delaunay
-                        badedge = incircle(m->points, lowerleft, lowerright, upperleft, nextapex) > 0.0;
+                        bad_edge = incircle(m->points, lower_left, lower_right, upper_left, next_apex) > 0.0;
                     } else {
                         // Avoid eating right through the triangulation
-                        badedge = false;
+                        bad_edge = false;
                     }
                 }
             }
         }
 
         // Consider eliminating edges from the right triangulation
-        if (!rightfinished) {
-            next(rightcand, nextedge);
-            sym_self(m->triangles, nextedge);
-            uint32_t nextapex = apex(m, nextedge);
-            if (nextapex != INVALID) {
+        if (!right_finished) {
+            next(right_cand, next_edge);
+            sym_self(m->triangles, next_edge);
+            uint32_t next_apex = apex(m, next_edge);
+            if (next_apex != INVALID) {
                 // Check whether the edge is Delaunay
-                bool badedge = incircle(m->points, lowerleft, lowerright, upperright, nextapex) > 0.0;
-                HEdge topcasing, sidecasing, outercasing;
-                while (badedge) {
-                    prev_self(nextedge);
-                    sym(m->triangles, nextedge, topcasing);
-                    prev_self(nextedge);
-                    sym(m->triangles, nextedge, sidecasing);
-                    bond(m->triangles, nextedge, topcasing);
-                    bond(m->triangles, rightcand, sidecasing);
-                    prev_self(rightcand);
-                    sym(m->triangles, rightcand, outercasing);
-                    next_self(nextedge);
-                    bond(m->triangles, nextedge, outercasing);
+                bool bad_edge = incircle(m->points, lower_left, lower_right, upper_right, next_apex) > 0.0;
+                HEdge top_casing, side_casing, outer_casing;
+                while (bad_edge) {
+                    prev_self(next_edge);
+                    sym(m->triangles, next_edge, top_casing);
+                    prev_self(next_edge);
+                    sym(m->triangles, next_edge, side_casing);
+                    bond(m->triangles, next_edge, top_casing);
+                    bond(m->triangles, right_cand, side_casing);
+                    prev_self(right_cand);
+                    sym(m->triangles, right_cand, outer_casing);
+                    next_self(next_edge);
+                    bond(m->triangles, next_edge, outer_casing);
 
-                    set_org(m->triangles, rightcand, INVALID);
-                    set_dest(m->triangles, rightcand, lowerright);
-                    set_apex(m->triangles, rightcand, nextapex);
-                    set_org(m->triangles, nextedge, upperright);
-                    set_dest(m->triangles, nextedge, INVALID);
-                    set_apex(m->triangles, nextedge, nextapex);
+                    set_org(m->triangles, right_cand, INVALID);
+                    set_dest(m->triangles, right_cand, lower_right);
+                    set_apex(m->triangles, right_cand, next_apex);
+                    set_org(m->triangles, next_edge, upper_right);
+                    set_dest(m->triangles, next_edge, INVALID);
+                    set_apex(m->triangles, next_edge, next_apex);
 
-                    upperright = nextapex;
+                    upper_right = next_apex;
 
-                    copy(sidecasing, nextedge);
-                    nextapex = apex(m, nextedge);
-                    if (nextapex != INVALID) {
-                        badedge = incircle(m->points, lowerleft, lowerright, upperright, nextapex) > 0.0;
+                    copy(side_casing, next_edge);
+                    next_apex = apex(m, next_edge);
+                    if (next_apex != INVALID) {
+                        bad_edge = incircle(m->points, lower_left, lower_right, upper_right, next_apex) > 0.0;
                     } else {
-                        badedge = false;
+                        bad_edge = false;
                     }
                 }
             }
         }
 
 
-        if (leftfinished ||
-            (!rightfinished && (incircle(m->points, upperleft, lowerleft, lowerright, upperright) > 0.0))) {
+        if (left_finished ||
+            (!right_finished && (incircle(m->points, upper_left, lower_left, lower_right, upper_right) > 0.0))) {
             // Knit the triangulations, adding an edge from `lowerleft'
             // to `upperright'
-            bond(m->triangles, baseedge, rightcand);
-            prev(rightcand, baseedge);
-            set_dest(m->triangles, baseedge, lowerleft);
-            lowerright = upperright;
-            sym(m->triangles, baseedge, rightcand);
-            upperright = apex(m, rightcand);
+            bond(m->triangles, base_edge, right_cand);
+            prev(right_cand, base_edge);
+            set_dest(m->triangles, base_edge, lower_left);
+            lower_right = upper_right;
+            sym(m->triangles, base_edge, right_cand);
+            upper_right = apex(m, right_cand);
         } else {
             // Knit the triangulations, adding an edge from `upperleft'
             // to `lowerright'
-            bond(m->triangles, baseedge, leftcand);
-            next(leftcand, baseedge);
-            set_org(m->triangles, baseedge, lowerright);
-            lowerleft = upperleft;
-            sym(m->triangles, baseedge, leftcand);
-            upperleft = apex(m, leftcand);
+            bond(m->triangles, base_edge, left_cand);
+            next(left_cand, base_edge);
+            set_org(m->triangles, base_edge, lower_right);
+            lower_left = upper_left;
+            sym(m->triangles, base_edge, left_cand);
+            upper_left = apex(m, left_cand);
         }
     }
 }
 
 static void div_conq_recurse(
-    Mesh* m, const uint32_t axis, const uint32_t start, const uint32_t end, HEdge& farleft, HEdge& farright
+    Mesh* m, const std::vector<uint32_t>& sorted_pt_inds, const uint32_t axis, const uint32_t start, const uint32_t end,
+    HEdge& far_left, HEdge& far_right
 ) {
     const auto len = end - start;
     if (len == 2) {
-        make_triangle(m->triangles, farleft);
-        set_org(m->triangles, farleft, m->sorted_pt_inds[start]);
-        set_dest(m->triangles, farleft, m->sorted_pt_inds[start + 1]);
+        make_triangle(m->triangles, far_left);
+        set_org(m->triangles, far_left, sorted_pt_inds[start]);
+        set_dest(m->triangles, far_left, sorted_pt_inds[start + 1]);
 
-        make_triangle(m->triangles, farright);
-        set_org(m->triangles, farright, m->sorted_pt_inds[start + 1]);
-        set_dest(m->triangles, farright, m->sorted_pt_inds[start]);
-        bond(m->triangles, farleft, farright);
+        make_triangle(m->triangles, far_right);
+        set_org(m->triangles, far_right, sorted_pt_inds[start + 1]);
+        set_dest(m->triangles, far_right, sorted_pt_inds[start]);
+        bond(m->triangles, far_left, far_right);
 
-        prev_self(farleft);
-        next_self(farright);
-        bond(m->triangles, farleft, farright);
+        prev_self(far_left);
+        next_self(far_right);
+        bond(m->triangles, far_left, far_right);
 
-        prev_self(farleft);
-        next_self(farright);
-        bond(m->triangles, farleft, farright);
+        prev_self(far_left);
+        next_self(far_right);
+        bond(m->triangles, far_left, far_right);
 
         // ensura that the origin of `farleft` is `start`
-        prev(farright, farleft);
+        prev(far_right, far_left);
     } else if (len == 3) {
         HEdge midtri, tri1, tri2, tri3;
         make_triangle(m->triangles, midtri);
         make_triangle(m->triangles, tri1);
         make_triangle(m->triangles, tri2);
         make_triangle(m->triangles, tri3);
-        const auto area = counterclockwise(
-            m->points, m->sorted_pt_inds[start], m->sorted_pt_inds[start + 1], m->sorted_pt_inds[start + 2]
-        );
+        const auto area =
+            counterclockwise(m->points, sorted_pt_inds[start], sorted_pt_inds[start + 1], sorted_pt_inds[start + 2]);
         if (area == 0.0) {
             // Three collinear vertices; the triangulation is two edges
-            set_org(m->triangles, midtri, m->sorted_pt_inds[start]);
-            set_dest(m->triangles, midtri, m->sorted_pt_inds[start + 1]);
-            set_org(m->triangles, tri1, m->sorted_pt_inds[start + 1]);
-            set_dest(m->triangles, tri1, m->sorted_pt_inds[start]);
-            set_org(m->triangles, tri2, m->sorted_pt_inds[start + 2]);
-            set_dest(m->triangles, tri2, m->sorted_pt_inds[start + 1]);
-            set_org(m->triangles, tri3, m->sorted_pt_inds[start + 1]);
-            set_dest(m->triangles, tri3, m->sorted_pt_inds[start + 2]);
+            set_org(m->triangles, midtri, sorted_pt_inds[start]);
+            set_dest(m->triangles, midtri, sorted_pt_inds[start + 1]);
+            set_org(m->triangles, tri1, sorted_pt_inds[start + 1]);
+            set_dest(m->triangles, tri1, sorted_pt_inds[start]);
+            set_org(m->triangles, tri2, sorted_pt_inds[start + 2]);
+            set_dest(m->triangles, tri2, sorted_pt_inds[start + 1]);
+            set_org(m->triangles, tri3, sorted_pt_inds[start + 1]);
+            set_dest(m->triangles, tri3, sorted_pt_inds[start + 2]);
             // All apices are intentionally left INVALID.
             bond(m->triangles, midtri, tri1);
             bond(m->triangles, tri2, tri3);
@@ -446,32 +445,31 @@ static void div_conq_recurse(
             bond(m->triangles, midtri, tri1);
             bond(m->triangles, tri2, tri3);
 
-            copy(tri1, farleft);
-            copy(tri2, farright);
+            copy(tri1, far_left);
+            copy(tri2, far_right);
         } else {
 
             // The three vertices are not collinear; the triangulation is one
             // triangle, namely `midtri'.
-            set_org(m->triangles, midtri, m->sorted_pt_inds[start]);
-            set_dest(m->triangles, tri1, m->sorted_pt_inds[start]);
-            set_org(m->triangles, tri3, m->sorted_pt_inds[start]);
-            // Apices of tri1, tri2, and tri3 are left NULL
+            set_org(m->triangles, midtri, sorted_pt_inds[start]);
+            set_dest(m->triangles, tri1, sorted_pt_inds[start]);
+            set_org(m->triangles, tri3, sorted_pt_inds[start]);
             if (area > 0.0) {
                 // The vertices are in counterclockwise order
-                set_dest(m->triangles, midtri, m->sorted_pt_inds[start + 1]);
-                set_org(m->triangles, tri1, m->sorted_pt_inds[start + 1]);
-                set_dest(m->triangles, tri2, m->sorted_pt_inds[start + 1]);
-                set_apex(m->triangles, midtri, m->sorted_pt_inds[start + 2]);
-                set_org(m->triangles, tri2, m->sorted_pt_inds[start + 2]);
-                set_dest(m->triangles, tri3, m->sorted_pt_inds[start + 2]);
+                set_dest(m->triangles, midtri, sorted_pt_inds[start + 1]);
+                set_org(m->triangles, tri1, sorted_pt_inds[start + 1]);
+                set_dest(m->triangles, tri2, sorted_pt_inds[start + 1]);
+                set_apex(m->triangles, midtri, sorted_pt_inds[start + 2]);
+                set_org(m->triangles, tri2, sorted_pt_inds[start + 2]);
+                set_dest(m->triangles, tri3, sorted_pt_inds[start + 2]);
             } else {
                 // The vertices are in clockwise order
-                set_dest(m->triangles, midtri, m->sorted_pt_inds[start + 2]);
-                set_org(m->triangles, tri1, m->sorted_pt_inds[start + 2]);
-                set_dest(m->triangles, tri2, m->sorted_pt_inds[start + 2]);
-                set_apex(m->triangles, midtri, m->sorted_pt_inds[start + 1]);
-                set_org(m->triangles, tri2, m->sorted_pt_inds[start + 1]);
-                set_dest(m->triangles, tri3, m->sorted_pt_inds[start + 1]);
+                set_dest(m->triangles, midtri, sorted_pt_inds[start + 2]);
+                set_org(m->triangles, tri1, sorted_pt_inds[start + 2]);
+                set_dest(m->triangles, tri2, sorted_pt_inds[start + 2]);
+                set_apex(m->triangles, midtri, sorted_pt_inds[start + 1]);
+                set_org(m->triangles, tri2, sorted_pt_inds[start + 1]);
+                set_dest(m->triangles, tri3, sorted_pt_inds[start + 1]);
             }
             // The topology does not depend on how the vertices are ordered
             bond(m->triangles, midtri, tri1);
@@ -489,24 +487,25 @@ static void div_conq_recurse(
             prev_self(tri3);
             bond(m->triangles, tri2, tri3);
             // Ensure that the origin of `farleft' is start
-            copy(tri1, farleft);
+            copy(tri1, far_left);
             // Ensure that the destination of `farright' is `start + 2`
             if (area > 0.0) {
-                copy(tri2, farright);
+                copy(tri2, far_right);
             } else {
-                next(farleft, farright);
+                next(far_left, far_right);
             }
         }
     } else {
         const auto divider = len >> 1;
         HEdge innerleft, innerright;
 
-        div_conq_recurse(m, 1 - axis, start, start + divider, farleft, innerleft);
-        div_conq_recurse(m, 1 - axis, start + divider, end, innerright, farright);
-        merge_hulls(m, axis, farleft, innerleft, innerright, farright);
+        div_conq_recurse(m, sorted_pt_inds, 1 - axis, start, start + divider, far_left, innerleft);
+        div_conq_recurse(m, sorted_pt_inds, 1 - axis, start + divider, end, innerright, far_right);
+        merge_hulls(m, axis, far_left, innerleft, innerright, far_right);
     }
 }
 
+// extern "C" {
 uint32_t* triangulate(
     const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments, uint32_t* n_triangles
 ) {
@@ -530,9 +529,9 @@ uint32_t* triangulate(
     // resort the array of points to accommodate alternating cuts
     alternate_axes(points, &sorted_pt_inds[0], n_points, 0);
 
-    Mesh mesh{points, sorted_pt_inds, {}};
-    HEdge hullleft, hullright;
-    div_conq_recurse(&mesh, 0, 0, n_points, hullleft, hullright);
+    Mesh mesh{points, {}};
+    HEdge hull_left, hull_right;
+    div_conq_recurse(&mesh, sorted_pt_inds, 0, 0, n_points, hull_left, hull_right);
 
     const auto iter = std::remove_if(mesh.triangles.begin(), mesh.triangles.end(), [](const Triangle& tri) {
         return tri.data[0] == INVALID || tri.data[1] == INVALID || tri.data[2] == INVALID;
@@ -547,3 +546,4 @@ uint32_t* triangulate(
     }
     return triangle_indices.release();
 }
+//}
