@@ -17,6 +17,9 @@ constexpr uint32_t INVALID{std::numeric_limits<uint32_t>::max()};
 struct HEdge {
     uint32_t tri{INVALID};
     uint32_t ori{0};
+
+    inline friend bool operator==(const HEdge& a, const HEdge& b) { return a.tri == b.tri && a.ori == b.ori; }
+    inline friend bool operator!=(const HEdge& a, const HEdge& b) { return !(a == b); }
 };
 
 struct Triangle {
@@ -88,6 +91,17 @@ inline void sym_self(const std::vector<Triangle>& triangles, HEdge& he) {
     he.ori = nei.ori;
 }
 
+inline void oprev_self(const std::vector<Triangle>& triangles, HEdge& he) {
+    sym_self(triangles, he);
+    next_self(he);
+}
+
+inline void onext_self(const std::vector<Triangle>& triangles, HEdge& he) {
+    prev_self(he);
+    sym_self(triangles, he);
+}
+
+
 inline void prev(const HEdge& src, HEdge& dest) {
     dest.tri = src.tri;
     dest.ori = (src.ori + 2) % 3;
@@ -102,6 +116,16 @@ inline void sym(const std::vector<Triangle>& triangles, const HEdge& src, HEdge&
     const auto& nei = triangles[src.tri].nei[src.ori];
     dest.tri = nei.tri;
     dest.ori = nei.ori;
+}
+
+inline void oprev(const std::vector<Triangle>& triangles, const HEdge& src, HEdge& dest) {
+    sym(triangles, src, dest);
+    next_self(dest);
+}
+
+inline void onext(const std::vector<Triangle>& triangles, const HEdge& src, HEdge& dest) {
+    prev(src, dest);
+    sym_self(triangles, dest);
 }
 
 inline void copy(const HEdge& src, HEdge& dest) {
@@ -505,6 +529,312 @@ static void div_conq_recurse(
     }
 }
 
+inline uint32_t mark_ghost(std::vector<Triangle>& triangles, const HEdge& start, std::vector<bool>& ghost) {
+    HEdge dissolve_edge;
+    copy(start, dissolve_edge);
+    uint32_t count = 0;
+    do {
+        ghost[dissolve_edge.tri] = true;
+        count += 1;
+        next_self(dissolve_edge);
+        sym_self(triangles, dissolve_edge);
+    } while (dissolve_edge != start);
+    return count;
+}
+
+inline std::vector<HEdge>
+make_vertex_map(const std::vector<Triangle>& triangles, const std::vector<bool>& ghost, const uint32_t n_points) {
+    std::vector<HEdge> vertex_map(n_points);
+    for (uint32_t idx = 0; idx < triangles.size(); idx++) {
+        if (ghost[idx]) {
+            continue;
+        }
+        const auto& tri = triangles[idx];
+        for (uint32_t i = 0; i < 3; i++) {
+            const auto org = tri.data[i];
+            if (vertex_map[org].tri != INVALID) {
+                continue;
+            }
+            const auto he = tri.nei[(i + 1) % 3];
+            if (!ghost[he.tri]) {
+                vertex_map[org] = he;
+            } else {
+                vertex_map[org].tri = idx;
+                vertex_map[org].ori = (i + 2) % 3;
+            }
+        }
+    }
+    return vertex_map;
+}
+
+enum class Direction { WITHIN, LEFTCOLLINEAR, RIGHTCOLLINEAR };
+
+Direction find_direction(Mesh* m, HEdge& search_tri, uint32_t search_point) {
+
+    uint32_t start_vertex = org(m, search_tri);
+    uint32_t right_vertex = dest(m, search_tri);
+    uint32_t left_vertex = apex(m, search_tri);
+
+    double left_ccw = counterclockwise(m->points, search_point, start_vertex, left_vertex);
+    bool left_flag = left_ccw > 0.0;
+
+    double right_ccw = counterclockwise(m->points, start_vertex, search_point, right_vertex);
+    bool right_flag = right_ccw > 0.0;
+    HEdge check_tri;
+    if (left_flag && right_flag) {
+        onext(m->triangles, search_tri, check_tri);
+        if (check_tri.tri == INVALID) {
+            left_flag = false;
+        } else {
+            right_flag = false;
+        }
+    }
+
+    uint32_t iter = 0;
+    // Valid worst case: vertex is incident on every face.
+    const uint32_t max_iter = static_cast<uint32_t>(m->triangles.size() << 1) + 100;
+    while (left_flag) {
+        // Turn left until satisfied
+        onext_self(m->triangles, search_tri);
+        if (search_tri.tri == INVALID) {
+            throw "unreachable";
+        }
+        left_vertex = apex(m, search_tri);
+        right_ccw = left_ccw;
+        left_ccw = counterclockwise(m->points, search_point, start_vertex, left_vertex);
+        left_flag = left_ccw > 0.0;
+        iter++;
+        if (iter > max_iter) {
+            throw "infinite loop";
+        }
+    }
+
+    iter = 0;
+    while (right_flag) {
+        // Turn right until satisfied
+        oprev_self(m->triangles, search_tri);
+        if (search_tri.tri == INVALID) {
+            throw "unreachable";
+        }
+        right_vertex = dest(m, search_tri);
+        left_ccw = right_ccw;
+        right_ccw = counterclockwise(m->points, start_vertex, search_point, right_vertex);
+        right_flag = right_ccw > 0.0;
+        iter++;
+        if (iter > max_iter) {
+            throw "infinite loop";
+        }
+    }
+    if (left_ccw == 0.0) {
+        return Direction::LEFTCOLLINEAR;
+    } else if (right_ccw == 0.0) {
+        return Direction::RIGHTCOLLINEAR;
+    } else {
+        return Direction::WITHIN;
+    }
+}
+
+inline uint32_t twin(const uint32_t mark) { return ((mark & 1) == 0) ? (mark + 1) : (mark - 1); }
+
+inline void set_mark(std::vector<Triangle>& triangles, const HEdge& he, const uint32_t mark) {
+    triangles[he.tri].data[he.ori + 3] = mark;
+    HEdge sym_edge;
+    sym(triangles, he, sym_edge);
+    if (sym_edge.tri != INVALID) {
+        triangles[sym_edge.tri].data[sym_edge.ori + 3] = twin(mark);
+    }
+}
+
+inline uint32_t mark(std::vector<Triangle>& triangles, const HEdge& he) { return triangles[he.tri].data[he.ori + 3]; }
+
+static bool scout_segment(Mesh* m, HEdge& search_tri, const uint32_t endpoint2, const uint32_t mark) {
+
+    const auto collinear = find_direction(m, search_tri, endpoint2);
+    const uint32_t right_vertex = dest(m, search_tri);
+    const uint32_t left_vertex = apex(m, search_tri);
+    if (left_vertex == endpoint2) {
+        // The segment is already an edge in the mesh.
+        prev_self(search_tri);
+        set_mark(m->triangles, search_tri, twin(mark));
+        return true;
+    } else if (right_vertex == endpoint2) {
+        // The segment is already an edge in the mesh.
+        set_mark(m->triangles, search_tri, mark);
+        return true;
+    } else if (collinear == Direction::LEFTCOLLINEAR) {
+        prev_self(search_tri);
+        return scout_segment(m, search_tri, endpoint2, twin(mark));
+    } else if (collinear == Direction::RIGHTCOLLINEAR) {
+        next_self(search_tri);
+        return scout_segment(m, search_tri, endpoint2, mark);
+    } else {
+        return false;
+    }
+}
+
+inline void flip(Mesh* m, HEdge& flip_edge) {
+    uint32_t right_vertex = org(m, flip_edge);
+    uint32_t left_vertex = dest(m, flip_edge);
+    uint32_t bot_vertex = apex(m, flip_edge);
+    HEdge top;
+    sym(m->triangles, flip_edge, top);
+    uint32_t far_vertex = apex(m, top);
+
+    // Identify the casing of the quadrilateral.
+    HEdge top_left;
+    prev(top, top_left);
+    HEdge topl_casing;
+    sym(m->triangles, top_left, topl_casing);
+    HEdge top_right;
+    next(top, top_right);
+    HEdge topr_casing;
+    sym(m->triangles, top_right, topr_casing);
+    HEdge bot_left;
+    next(flip_edge, bot_left);
+    HEdge botl_casing;
+    sym(m->triangles, bot_left, botl_casing);
+    HEdge bot_right;
+    prev(flip_edge, bot_right);
+    HEdge botr_casing;
+    sym(m->triangles, bot_right, botr_casing);
+    // Rotate the quadrilateral one-quarter turn counterclockwise
+    bond(m->triangles, top_left, botl_casing);
+    bond(m->triangles, bot_left, botr_casing);
+    bond(m->triangles, bot_right, topr_casing);
+    bond(m->triangles, top_right, topl_casing);
+
+    set_org(m->triangles, flip_edge, far_vertex);
+    set_dest(m->triangles, flip_edge, bot_vertex);
+    set_apex(m->triangles, flip_edge, right_vertex);
+    set_org(m->triangles, top, bot_vertex);
+    set_dest(m->triangles, top, far_vertex);
+    set_apex(m->triangles, top, left_vertex);
+}
+
+static void delaunay_fixup(Mesh* m, HEdge& fixup_tri, const bool left_side) {
+    HEdge near_tri;
+    next(fixup_tri, near_tri);
+    HEdge far_tri;
+    sym(m->triangles, near_tri, far_tri);
+    // Check if the edge opposite the origin of fixuptri can be flipped
+    if (far_tri.tri == INVALID) {
+        return;
+    }
+    if (mark(m->triangles, near_tri) != INVALID) {
+        return;
+    }
+    uint32_t near_vertex = apex(m, near_tri);
+    uint32_t left_vertex = org(m, near_tri);
+    uint32_t right_vertex = dest(m, near_tri);
+    uint32_t far_vertex = apex(m, far_tri);
+    // Check whether the previous polygon vertex is a reflex vertex
+    if (left_side) {
+        if (counterclockwise(m->points, near_vertex, left_vertex, far_vertex) <= 0.0) {
+            // leftvertex is a reflex vertex too, nothing can
+            // be done until a convex section is found.
+            return;
+        }
+    } else {
+        if (counterclockwise(m->points, far_vertex, right_vertex, near_vertex) <= 0.0) {
+            return;
+        }
+    }
+
+    if (counterclockwise(m->points, right_vertex, left_vertex, far_vertex) > 0.0) {
+        if (incircle(m->points, left_vertex, far_vertex, right_vertex, near_vertex) <= 0.0) {
+            return;
+        }
+    }
+
+    flip(m, near_tri);
+    prev_self(fixup_tri);
+    delaunay_fixup(m, fixup_tri, left_side);
+    delaunay_fixup(m, far_tri, left_side);
+}
+
+static void constrained_edge(Mesh* m, HEdge& start_tri, const uint32_t endpoint2, const uint32_t mark) {
+    const auto endpoint1 = org(m, start_tri);
+    HEdge fixup_tri;
+    next(start_tri, fixup_tri);
+    flip(m, fixup_tri);
+
+    bool collision = 0;
+    bool done = 0;
+    do {
+        uint32_t far_vertex = org(m, fixup_tri);
+        if (far_vertex == endpoint2) {
+            HEdge fixup_tri2;
+            oprev(m->triangles, fixup_tri, fixup_tri2);
+            // Enforce the Delaunay condition around endpoint2
+            delaunay_fixup(m, fixup_tri, false);
+            delaunay_fixup(m, fixup_tri2, true);
+            done = true;
+        } else {
+            const double area = counterclockwise(m->points, endpoint1, endpoint2, far_vertex);
+            if (area == 0.0) {
+                collision = true;
+                HEdge fixup_tri2;
+                oprev(m->triangles, fixup_tri, fixup_tri2);
+
+                delaunay_fixup(m, fixup_tri, false);
+                delaunay_fixup(m, fixup_tri2, true);
+
+                done = 1;
+            } else {
+                if (area > 0.0) {
+                    HEdge fixuptri2;
+                    oprev(m->triangles, fixup_tri, fixuptri2);
+                    delaunay_fixup(m, fixuptri2, true);
+                    prev_self(fixup_tri);
+                } else {
+                    delaunay_fixup(m, fixup_tri, false);
+                    oprev_self(m->triangles, fixup_tri);
+                }
+                flip(m, fixup_tri);
+            }
+        }
+    } while (!done);
+    if (collision) {
+        if (!scout_segment(m, fixup_tri, endpoint2, mark)) {
+            constrained_edge(m, fixup_tri, endpoint2, mark);
+        }
+    } else {
+        set_mark(m->triangles, fixup_tri, mark);
+    }
+}
+
+inline void
+insert_segment(Mesh* m, const std::vector<HEdge> vertex_map, uint32_t start, uint32_t end, const uint32_t mark) {
+    HEdge searchtri1 = vertex_map[start];
+    if (scout_segment(m, searchtri1, end, mark)) {
+        return;
+    }
+
+    // The first endpoint may have changed if a collision with an intervening
+    // vertex on the segment occurred.
+    start = org(m, searchtri1);
+
+    HEdge searchtri2 = vertex_map[end];
+    if (scout_segment(m, searchtri2, start, twin(mark))) {
+        return;
+    }
+    end = org(m, searchtri2);
+    constrained_edge(m, searchtri1, end, mark);
+}
+
+static void form_skeleton(
+    Mesh* m, const uint32_t n_points, const std::vector<bool>& ghost, const uint32_t* segments,
+    const uint32_t n_segments
+) {
+    const auto vertex_map = make_vertex_map(m->triangles, ghost, n_points);
+    for (uint32_t i = 0; i < n_segments; i++) {
+        const auto* data = &segments[i << 1];
+        if (data[0] != data[1]) {
+            insert_segment(m, vertex_map, data[0], data[1], i << 1);
+        }
+    }
+}
+
 // extern "C" {
 uint32_t* triangulate(
     const double* points, uint32_t n_points, const uint32_t* segments, const uint32_t n_segments, uint32_t* n_triangles
@@ -517,6 +847,7 @@ uint32_t* triangulate(
         return pi[0] < pj[0] || (pi[0] == pj[0] && pi[1] < pj[1]);
     });
     {
+        /** todo: remove*/
         const auto it =
             std::unique(sorted_pt_inds.begin(), sorted_pt_inds.end(), [points](const uint32_t i, const uint32_t j) {
                 const double* pi = &points[i << 1];
@@ -532,17 +863,21 @@ uint32_t* triangulate(
     Mesh mesh{points, {}};
     HEdge hull_left, hull_right;
     div_conq_recurse(&mesh, sorted_pt_inds, 0, 0, n_points, hull_left, hull_right);
+    std::vector<bool> ghost(mesh.triangles.size(), false);
+    *n_triangles = static_cast<uint32_t>(mesh.triangles.size()) - mark_ghost(mesh.triangles, hull_left, ghost);
+    form_skeleton(&mesh, n_points, ghost, segments, n_segments);
 
-    const auto iter = std::remove_if(mesh.triangles.begin(), mesh.triangles.end(), [](const Triangle& tri) {
-        return tri.data[0] == INVALID || tri.data[1] == INVALID || tri.data[2] == INVALID;
-    });
-    *n_triangles = static_cast<uint32_t>(std::distance(mesh.triangles.begin(), iter));
     auto triangle_indices = std::make_unique<uint32_t[]>(*n_triangles * 3);
-    for (uint32_t i = 0; i < *n_triangles; i++) {
-        auto data = &triangle_indices[i * 3];
-        data[0] = mesh.triangles[i].data[0];
-        data[1] = mesh.triangles[i].data[1];
-        data[2] = mesh.triangles[i].data[2];
+    for (uint32_t i = 0, j = 0; i < mesh.triangles.size(); i++) {
+        if (ghost[i]) {
+            continue;
+        }
+        const auto& tri = mesh.triangles[i];
+        auto data = &triangle_indices[j * 3];
+        data[0] = tri.data[0];
+        data[1] = tri.data[1];
+        data[2] = tri.data[2];
+        j += 1;
     }
     return triangle_indices.release();
 }
