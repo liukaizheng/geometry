@@ -7,6 +7,7 @@
 #include <memory>
 #include <numeric>
 #include <vector>
+#include <stack>
 
 extern "C" {
 double orient2d(double*, double*, double*);
@@ -720,6 +721,7 @@ static void delaunay_fixup(Mesh* m, HEdge& fixup_tri, const bool left_side) {
     if (far_tri.tri == INVALID) {
         return;
     }
+    
     if (mark(m->triangles, near_tri) != INVALID) {
         return;
     }
@@ -866,9 +868,49 @@ uint32_t* triangulate(
     HEdge hull_left, hull_right;
     div_conq_recurse(&mesh, sorted_pt_inds, 0, 0, n_points, hull_left, hull_right);
     std::vector<bool> ghost(mesh.triangles.size(), false);
-    *n_triangles = static_cast<uint32_t>(mesh.triangles.size()) - mark_ghost(mesh.triangles, hull_left, ghost);
+    uint32_t n_ghost = mark_ghost(mesh.triangles, hull_left, ghost);
     form_skeleton(&mesh, n_points, ghost, segments, n_segments);
+    
+    std::vector<bool> visited(mesh.triangles.size(), false);
+    for (uint32_t i = 0; i < visited.size(); i++) {
+        if (visited[i] || ghost[i]) {
+            continue;
+        }
+        visited[i] = true;
+        std::vector<uint32_t> stack{i};
+        std::vector<uint32_t> group{i};
+        int8_t flag = -1; // -1: uncertain; 0: abandon; 1: keep
+        while (!stack.empty()) {
+            if (stack.back() == 1689 || stack.back() == 1977) {
+                const auto a = 2;
+            }
+            const Triangle& tri = mesh.triangles[stack.back()];
+            stack.pop_back();
+            for (uint32_t j = 0; j < 3u; j++) {
+                if (tri.data[j + 3] != INVALID) {
+                    if (flag < 0) {
+                        flag = (tri.data[j + 3] & 1) == 0;
+                    }
+                } else {
+                    const auto& he = tri.nei[j];
+                    if (visited[he.tri] || ghost[he.tri]) {
+                        continue;
+                    }
+                    visited[he.tri] = true;
+                    group.emplace_back(he.tri);
+                    stack.emplace_back(he.tri);
+                }
+            }
+        }
+        if (flag == 0) {
+            n_ghost += static_cast<uint32_t>(group.size());
+            for (auto && idx : std::move(group)) {
+                ghost[idx] = true;
+            }
+        }
+    }
 
+    *n_triangles = static_cast<uint32_t>(mesh.triangles.size()) - n_ghost;
     auto triangle_indices = std::make_unique<uint32_t[]>(*n_triangles * 3);
     for (uint32_t i = 0, j = 0; i < mesh.triangles.size(); i++) {
         if (ghost[i]) {

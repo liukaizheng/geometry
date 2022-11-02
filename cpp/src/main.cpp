@@ -1,10 +1,10 @@
+#include <Eigen/Dense>
+#include <chrono>
 #include <fstream>
 #include <iostream>
+#include <numeric>
 #include <triangle/triangle.h>
 #include <vector>
-#include <Eigen/Dense>
-#include <numeric>
-#include <chrono>
 
 extern "C" {
 void exactinit();
@@ -14,7 +14,10 @@ uint32_t* triangulate_polygon(
 );
 }
 
-static void writeOBJ(const std::string& name, const double* data, const uint32_t n_points, const uint32_t* indices, const uint32_t n_triangles) {
+static void writeOBJ(
+    const std::string& name, const double* data, const uint32_t n_points, const uint32_t* indices,
+    const uint32_t n_triangles
+) {
     std::ofstream file(name);
     for (uint32_t i = 0; i < n_points; i++) {
         file << "v " << data[2 * i] << " " << data[2 * i + 1] << " 0\n";
@@ -55,13 +58,13 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 int main() {
     exactinit();
     uint32_t n_triangles = 0;
-    // std::vector<double> point_data{0.0, 0.0,  1.0,  0.0, 1.0,  1.0,  0.0, 1.0,  0.25, 0.25,
-    //                                0.75, 0.25, 0.75, 0.75, 0.25, 0.75
-    // };
-    // auto result = triangulate(&point_data[0], static_cast<uint32_t>(point_data.size() / 2), nullptr, 0, &n_triangles);
-    uint32_t n_point = 1000;
+    std::vector<double> point_data{0.0,  0.0,  1.0,  0.0,  1.0,  1.0,  0.0,  1.0,
+                                   0.25, 0.25, 0.75, 0.25, 0.75, 0.75, 0.25, 0.75};
+    uint32_t n_point = 8;
+    std::vector<uint32_t> segment{0, 1, 1, 6, 6, 2, 2, 3, 3, 0, 7, 5, 5, 4, 4, 7};
+    
 
-    auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor>::Random(n_point, 2).eval();
+    /*auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor>::Random(n_point, 2).eval();
     std::vector<uint32_t> indices(n_point);
     std::iota(indices.begin(), indices.end(), 0);
     std::sort(indices.begin(), indices.end(), [&](int i, int j) { const auto pi = &point_data(i, 0);
@@ -79,10 +82,9 @@ int main() {
         copy.row(i) = point_data.row(indices[i]);
     }
     point_data = copy;
-    // std::cout << point_data << "\n";
-    std::vector<uint32_t> segment{0, n_point - 1};
-    //std::vector<uint32_t> segment;
-    // std::cout << point_data;
+    std::vector<uint32_t> segment{0, n_point - 1};*/
+    // std::vector<uint32_t> segment;
+    //  std::cout << point_data;
     /* std::vector<Eigen::Vector3d> v_arr;
     ReadXYZ("456.xyz", v_arr);
     Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor> point_data(v_arr.size(), 2);
@@ -94,8 +96,9 @@ int main() {
     n_point = point_data.rows();*/
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto result =
-        triangulate(&point_data(0, 0), static_cast<uint32_t>(point_data.size() / 2), &segment[0], segment.size() / 2, &n_triangles);
+    auto result = triangulate(
+        &point_data[0], static_cast<uint32_t>(point_data.size() / 2), &segment[0], segment.size() / 2, &n_triangles
+    );
     std::cout << "time elapsed "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::high_resolution_clock::now() - start
@@ -103,5 +106,5 @@ int main() {
                      .count()
               << " ms\n";
     // write_xyz("123.xyz", &point_data(0, 0), n_point);
-    writeOBJ("123.obj",&point_data(0, 0), n_point, result, n_triangles);
+    writeOBJ("123.obj", &point_data[0], n_point, result, n_triangles);
 }
