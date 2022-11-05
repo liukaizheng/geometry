@@ -58,13 +58,13 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 int main() {
     exactinit();
     uint32_t n_triangles = 0;
-    std::vector<double> point_data{0.0,  0.0,  1.0,  0.0,  1.0,  1.0,  0.0,  1.0,
-                                   0.25, 0.25, 0.75, 0.25, 0.75, 0.75, 0.25, 0.75};
-    uint32_t n_point = 8;
-    std::vector<uint32_t> segment{0, 1, 1, 6, 6, 2, 2, 3, 3, 0, 7, 5, 5, 4, 4, 7};
+    // std::vector<double> point_data{0.0,  0.0,  1.0,  0.0,  1.0,  1.0,  0.0,  1.0,
+    //                                0.25, 0.25, 0.75, 0.25, 0.75, 0.75, 0.25, 0.75};
+    // std::vector<uint32_t> segment{0, 1, 1, 6, 6, 2, 2, 3, 3, 0, 7, 5, 5, 4, 4, 7};
     
 
-    /*auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor>::Random(n_point, 2).eval();
+    uint32_t n_point = 1000000;
+    auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 2, Eigen::RowMajor>::Random(n_point, 2).eval();
     std::vector<uint32_t> indices(n_point);
     std::iota(indices.begin(), indices.end(), 0);
     std::sort(indices.begin(), indices.end(), [&](int i, int j) { const auto pi = &point_data(i, 0);
@@ -82,7 +82,7 @@ int main() {
         copy.row(i) = point_data.row(indices[i]);
     }
     point_data = copy;
-    std::vector<uint32_t> segment{0, n_point - 1};*/
+    std::vector<uint32_t> segment{0, n_point - 1};
     // std::vector<uint32_t> segment;
     //  std::cout << point_data;
     /* std::vector<Eigen::Vector3d> v_arr;
@@ -97,7 +97,7 @@ int main() {
 
     auto start = std::chrono::high_resolution_clock::now();
     auto result = triangulate(
-        &point_data[0], static_cast<uint32_t>(point_data.size() / 2), &segment[0], segment.size() / 2, &n_triangles
+        &point_data(0, 0), static_cast<uint32_t>(point_data.size() / 2), &segment[0], segment.size() / 2, &n_triangles
     );
     std::cout << "time elapsed "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -106,5 +106,5 @@ int main() {
                      .count()
               << " ms\n";
     // write_xyz("123.xyz", &point_data(0, 0), n_point);
-    writeOBJ("123.obj", &point_data[0], n_point, result, n_triangles);
+    writeOBJ("123.obj", &point_data(0,0), n_point, result, n_triangles);
 }

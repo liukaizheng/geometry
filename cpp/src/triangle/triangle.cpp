@@ -637,12 +637,15 @@ Direction find_direction(Mesh* m, HEdge& search_tri, uint32_t search_point) {
 
 inline uint32_t twin(const uint32_t mark) { return ((mark & 1) == 0) ? (mark + 1) : (mark - 1); }
 
-inline void set_mark(std::vector<Triangle>& triangles, const HEdge& he, const uint32_t mark) {
+inline void
+set_mark(std::vector<Triangle>& triangles, const HEdge& he, const uint32_t mark, const bool reverse = true) {
     triangles[he.tri].data[he.ori + 3] = mark;
-    HEdge sym_edge;
-    sym(triangles, he, sym_edge);
-    if (sym_edge.tri != INVALID) {
-        triangles[sym_edge.tri].data[sym_edge.ori + 3] = twin(mark);
+    if (reverse) {
+        HEdge sym_edge;
+        sym(triangles, he, sym_edge);
+        if (sym_edge.tri != INVALID) {
+            triangles[sym_edge.tri].data[sym_edge.ori + 3] = twin(mark);
+        }
     }
 }
 
@@ -722,10 +725,10 @@ inline void flip(Mesh* m, const HEdge& flip_edge, std::vector<HEdge>& vertex_map
         vertex_map[far_vertex] = top_right;
     }
 
-    set_mark(m->triangles, top_right, tl_mark);
-    set_mark(m->triangles, bot_right, tr_mark);
-    set_mark(m->triangles, top_left, bl_mark);
-    set_mark(m->triangles, bot_left, br_mark);
+    set_mark(m->triangles, top_right, tl_mark, false);
+    set_mark(m->triangles, bot_right, tr_mark, false);
+    set_mark(m->triangles, top_left, bl_mark, false);
+    set_mark(m->triangles, bot_left, br_mark, false);
 
     set_org(m->triangles, flip_edge, far_vertex);
     set_dest(m->triangles, flip_edge, bot_vertex);
