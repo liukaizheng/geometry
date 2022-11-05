@@ -673,7 +673,7 @@ static bool scout_segment(Mesh* m, HEdge& search_tri, const uint32_t endpoint2, 
     }
 }
 
-inline void flip(Mesh* m, const HEdge& flip_edge) {
+inline void flip(Mesh* m, const HEdge& flip_edge, std::vector<HEdge>& vertex_map) {
     uint32_t right_vertex = org(m, flip_edge);
     uint32_t left_vertex = dest(m, flip_edge);
     uint32_t bot_vertex = apex(m, flip_edge);
@@ -709,6 +709,19 @@ inline void flip(Mesh* m, const HEdge& flip_edge) {
     const uint32_t bl_mark = mark(m->triangles, bot_left);
     const uint32_t br_mark = mark(m->triangles, bot_left);
 
+    if (vertex_map[right_vertex] == flip_edge || vertex_map[right_vertex] == top_right) {
+        vertex_map[right_vertex] = bot_right;
+    }
+    if (vertex_map[left_vertex] == top || vertex_map[left_vertex] == bot_left) {
+        vertex_map[left_vertex] = top_left;
+    }
+    if (vertex_map[bot_vertex] == bot_right) {
+        vertex_map[bot_vertex] = bot_left;
+    }
+    if (vertex_map[far_vertex] == top_left) {
+        vertex_map[far_vertex] = top_right;
+    }
+
     set_mark(m->triangles, top_right, tl_mark);
     set_mark(m->triangles, bot_right, tr_mark);
     set_mark(m->triangles, top_left, bl_mark);
@@ -722,7 +735,9 @@ inline void flip(Mesh* m, const HEdge& flip_edge) {
     set_apex(m->triangles, top, left_vertex);
 }
 
-static void delaunay_fixup(Mesh* m, const std::vector<bool>& ghost, HEdge& fixup_tri, const bool left_side) {
+static void delaunay_fixup(
+    Mesh* m, const std::vector<bool>& ghost, HEdge& fixup_tri, const bool left_side, std::vector<HEdge>& vertex_map
+) {
     HEdge near_tri;
     next(fixup_tri, near_tri);
     HEdge far_tri;
@@ -758,19 +773,20 @@ static void delaunay_fixup(Mesh* m, const std::vector<bool>& ghost, HEdge& fixup
         }
     }
 
-    flip(m, near_tri);
+    flip(m, near_tri, vertex_map);
     prev_self(fixup_tri);
-    delaunay_fixup(m, ghost, fixup_tri, left_side);
-    delaunay_fixup(m, ghost, far_tri, left_side);
+    delaunay_fixup(m, ghost, fixup_tri, left_side, vertex_map);
+    delaunay_fixup(m, ghost, far_tri, left_side, vertex_map);
 }
 
 static void constrained_edge(
-    Mesh* m, const std::vector<bool>& ghost, HEdge& start_tri, const uint32_t endpoint2, const uint32_t mark
+    Mesh* m, const std::vector<bool>& ghost, HEdge& start_tri, const uint32_t endpoint2, const uint32_t mark,
+    std::vector<HEdge>& vertex_map
 ) {
     const auto endpoint1 = org(m, start_tri);
     HEdge fixup_tri;
     next(start_tri, fixup_tri);
-    flip(m, fixup_tri);
+    flip(m, fixup_tri, vertex_map);
 
     bool collision = false;
     bool done = false;
@@ -780,8 +796,8 @@ static void constrained_edge(
             HEdge fixup_tri2;
             oprev(m->triangles, fixup_tri, fixup_tri2);
             // Enforce the Delaunay condition around endpoint2
-            delaunay_fixup(m, ghost, fixup_tri, false);
-            delaunay_fixup(m, ghost, fixup_tri2, true);
+            delaunay_fixup(m, ghost, fixup_tri, false, vertex_map);
+            delaunay_fixup(m, ghost, fixup_tri2, true, vertex_map);
             done = true;
         } else {
             const double area = counterclockwise(m->points, endpoint1, endpoint2, far_vertex);
@@ -790,27 +806,27 @@ static void constrained_edge(
                 HEdge fixup_tri2;
                 oprev(m->triangles, fixup_tri, fixup_tri2);
 
-                delaunay_fixup(m, ghost, fixup_tri, false);
-                delaunay_fixup(m, ghost, fixup_tri2, true);
+                delaunay_fixup(m, ghost, fixup_tri, false, vertex_map);
+                delaunay_fixup(m, ghost, fixup_tri2, true, vertex_map);
 
                 done = true;
             } else {
                 if (area > 0.0) {
                     HEdge fixuptri2;
                     oprev(m->triangles, fixup_tri, fixuptri2);
-                    delaunay_fixup(m, ghost, fixuptri2, true);
+                    delaunay_fixup(m, ghost, fixuptri2, true, vertex_map);
                     prev_self(fixup_tri);
                 } else {
-                    delaunay_fixup(m, ghost, fixup_tri, false);
+                    delaunay_fixup(m, ghost, fixup_tri, false, vertex_map);
                     oprev_self(m->triangles, fixup_tri);
                 }
-                flip(m, fixup_tri);
+                flip(m, fixup_tri, vertex_map);
             }
         }
     } while (!done);
     if (collision) {
         if (!scout_segment(m, fixup_tri, endpoint2, mark)) {
-            constrained_edge(m, ghost, fixup_tri, endpoint2, mark);
+            constrained_edge(m, ghost, fixup_tri, endpoint2, mark, vertex_map);
         }
     } else {
         set_mark(m->triangles, fixup_tri, dest(m, fixup_tri) == endpoint2 ? mark : twin(mark));
@@ -818,7 +834,7 @@ static void constrained_edge(
 }
 
 inline void insert_segment(
-    Mesh* m, const std::vector<HEdge> vertex_map, const std::vector<bool>& ghost, uint32_t start, uint32_t end,
+    Mesh* m, std::vector<HEdge>& vertex_map, const std::vector<bool>& ghost, uint32_t start, uint32_t end,
     const uint32_t mark
 ) {
     HEdge searchtri1 = vertex_map[start];
@@ -835,14 +851,14 @@ inline void insert_segment(
         return;
     }
     end = org(m, searchtri2);
-    constrained_edge(m, ghost, searchtri1, end, mark);
+    constrained_edge(m, ghost, searchtri1, end, mark, vertex_map);
 }
 
 static void form_skeleton(
     Mesh* m, const uint32_t n_points, const std::vector<bool>& ghost, const uint32_t* segments,
     const uint32_t n_segments
 ) {
-    const auto vertex_map = make_vertex_map(m->triangles, ghost, n_points);
+    auto vertex_map = make_vertex_map(m->triangles, ghost, n_points);
     for (uint32_t i = 0; i < n_segments; i++) {
         const auto* data = &segments[i << 1];
         if (data[0] != data[1]) {
