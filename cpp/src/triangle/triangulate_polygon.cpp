@@ -1,6 +1,9 @@
+#include <triangle/triangle.h>
+
 #include <Eigen/Dense>
 #include <cmath>
-#include <triangle/triangle.h>
+#include <iterator>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -29,13 +32,12 @@ std::vector<Index> unique_indices(const Index* indices, const Index len, std::ve
 
 extern "C" {
 uint32_t* triangulate_polygon(
-    const double* points, const uint32_t* index_data, const uint32_t* seperator, const uint32_t n_loops,
-    const double* x_axis_data, const double* y_axis_data, const double* origin_data, uint32_t* n_triangles
+    const double* points, const uint32_t* segments, const uint32_t n_segments, const double* origin_data,
+    const double* x_axis_data, const double* y_axis_data, uint32_t* n_triangles
 ) {
-    // std::unordered_map<int, int> map;
-    // std::vector<uint32_t> new_to_origin_map;
-    // const auto indices = unique_indices(index_data, seperator[n_loops - 1], new_to_origin_map);
-    /* using Vector3d = Eigen::Map<const Eigen::Vector3d>;
+    std::vector<uint32_t> new_to_origin_map;
+    const auto new_segment = unique_indices(segments, n_segments << 1, new_to_origin_map);
+    using Vector3d = Eigen::Map<const Eigen::Vector3d>;
     const Vector3d x_axis{x_axis_data};
     const Vector3d y_axis{y_axis_data};
     const Vector3d origin{origin_data};
@@ -49,64 +51,43 @@ uint32_t* triangulate_polygon(
         p_2d[0] = v.dot(x_axis);
         p_2d[1] = v.dot(y_axis);
     }
+    auto triangle_data = triangulate(
+        &points_2d(0, 0), static_cast<uint32_t>(new_to_origin_map.size()), &new_segment[0], n_segments, n_triangles
+    );
+    for (uint32_t i = 0; i < *n_triangles; i++) {
+        uint32_t* data = &triangle_data[i * 3];
+        data[0] = new_to_origin_map[data[0]];
+        data[1] = new_to_origin_map[data[1]];
+        data[2] = new_to_origin_map[data[2]];
+    }
+    return triangle_data;
+}
 
-    const auto cross = [](const double* v1, const double* v2) -> double { return v1[0] * v2[1] - v1[1] * v2[0]; };
-    const auto outer_loop_is_positive = [&seperator, &points_2d, &indices, &cross]() -> bool {
-        double area = 0;
-        for (std::size_t i = 0, len = seperator[0]; i < len; i++) {
-            area += cross(&points_2d(indices[i], 0), &points_2d(indices[(i + 1) % len], 0));
-        }
-        return area > 0;
-    };
-    const auto v1_and_v2 = [](const double* p1, const double* p2, const double* p3) -> auto{
-        return std::make_pair(
-            Eigen::Vector2d{p3[0] - p2[0], p3[1] - p2[1]}.normalized(),
-            Eigen::Vector2d{p1[0] - p2[0], p1[1] - p2[1]}.normalized()
-        );
-    };
-    const auto hole_point = [&outer_loop_is_positive, &points_2d, &indices, &v1_and_v2,
-                             &cross](const std::size_t start_idx, const std::size_t end_idx, double* data) {
-        const bool positive = outer_loop_is_positive();
-        const std::size_t len = end_idx - start_idx;
-        std::size_t index = len;
-        double min_angle_dot = 1.0;
-        const static double EPSILON = std::cos(M_PI / 180.0);
-        for (std::size_t i = 0; i < len; i++) {
-            const auto view{
-                std::vector{len + i - 1, i, i + 1} |
-                std::views::transform([len, &points_2d, &indices, start_idx](const auto idx) {
-                    return &points_2d(indices[idx % len + start_idx], 0);
-                })};
-            Eigen::Vector2d v1, v2;
-            std::tie(v1, v2) = v1_and_v2(view[0], view[1], view[2]);
-            if (positive ^ (cross(&v1[0], &v2[0]) > 0)) {
-                const double dot = std::abs(v1.dot(v2));
-                if (dot < 1. - EPSILON) {
-                    data[0] = (view[0][0] + view[2][0]) * 0.5;
-                    data[1] = (view[0][1] + view[2][1]) * 0.5;
-                    data[2] = (view[0][2] + view[2][2]) * 0.5;
-                    return;
-                } else {
-                    if (dot < min_angle_dot) {
-                        min_angle_dot = dot;
-                        index = i;
-                    }
-                }
-            }
-        }
-        const auto three{
-            std::vector{len + index - 1, index, index + 1} |
-            std::views::transform([len, &points_2d, &indices, start_idx](const auto idx) {
-                return &points_2d(indices[idx % len + start_idx], 0);
-            })};
-        data[0] = (three[0][0] = three[2][0]) * 0.5;
-        data[1] = (three[0][1] = three[2][1]) * 0.5;
-        data[2] = (three[0][2] = three[2][2]) * 0.5;
-    };
-    std::vector<double> hole_points((n_loops - 1) * 2);
-    for (std::size_t i = 1; i < n_loops; i++) {
-        hole_point(seperator[i - 1], seperator[i], &hole_points[(i - 1) * 2]);
-    }*/
-    return nullptr;
+uint32_t* triangulate_polygon_soup(
+    const double* points, const uint32_t* edge_data, const double* axis_data, const uint32_t* seperator,
+    const uint32_t n_polygon, uint32_t* n_triangles
+) {
+    std::vector<uint32_t> triangle_data;
+    const uint32_t* segment_ptr = edge_data;
+    const double* axis_ptr = axis_data;
+    for (uint32_t i = 0; i < n_polygon; i++) {
+        const uint32_t double_n_segments = seperator[i + 1] - seperator[i];
+        const double* origin = axis_ptr;
+        axis_ptr += 3;
+        const double* x_axis = axis_ptr;
+        axis_ptr += 3;
+        const double* y_axis = axis_ptr;
+        uint32_t n_poly_tri = 0;
+        const uint32_t* tri_data =
+            triangulate_polygon(points, segment_ptr, double_n_segments >> 1, origin, x_axis, y_axis, &n_poly_tri);
+        std::copy(tri_data, tri_data + n_poly_tri * 3, std::back_inserter(triangle_data));
+        delete[] tri_data;
+        segment_ptr += double_n_segments;
+        axis_ptr += 3;
+    }
+    *n_triangles = static_cast<uint32_t>(triangle_data.size() / 3);
+    auto result = std::make_unique<uint32_t[]>(triangle_data.size());
+    std::copy(triangle_data.begin(), triangle_data.end(), &result[0]);
+    return result.release();
 }
 }

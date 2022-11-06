@@ -898,6 +898,7 @@ uint32_t* triangulate(
     alternate_axes(points, &sorted_pt_inds[0], n_points, 0);
 
     Mesh mesh{points, {}};
+    mesh.triangles.reserve(n_points << 1);
     HEdge hull_left, hull_right;
     div_conq_recurse(&mesh, sorted_pt_inds, 0, 0, n_points, hull_left, hull_right);
     std::vector<bool> ghost(mesh.triangles.size(), false);
