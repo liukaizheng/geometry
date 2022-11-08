@@ -40,40 +40,13 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 }
 
 int main() {
-    IntervalNumber a(1.0);
-    std::vector<double> point_data{
-        0, 0, 0,
-        1, 0, 0,
-        1, 1, 0,
-        0, 1, 0,
-        0, 0, 1,
-        1, 0, 1,
-        1, 1, 1,
-        0, 1, 1,
-    };
-    std::vector<uint32_t> indices{
-        3, 2, 2, 1, 1, 0, 0, 3,
-        4, 5, 5, 6, 6, 7, 7, 4,
-        0, 1, 1, 5, 5, 4, 4, 0,
-        1, 2, 2, 6, 6, 5, 5, 1,
-        3, 7, 7, 6, 6, 2, 2, 3,
-        4, 7, 7, 3, 3, 0, 0, 4,
-    };
-    std::vector<uint32_t> seperator{0, 8, 16, 24, 32, 40, 48};
-    std::vector<double> axes {
-        0, 0, 0, 0, 1, 0, 1, 0, 0,
-        0, 0, 1, 1, 0, 0, 0, 1, 0,
-        0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 1,
-        1, 1, 0, -1, 0,0, 0, 0, 1,
-        0, 1, 0, 0, 0, 1, 0, 1, 0,
-    };
-    uint32_t n_triangles = 0;
-    const auto result = triangulate_polygon_soup(
-        point_data.data(), indices.data(), axes.data(), seperator.data(), static_cast<uint32_t>(seperator.size() - 1),
-        &n_triangles
-    );
-    writeOBJ("123.obj", point_data.data(), point_data.size() / 3, result, n_triangles);
+    IntervalNumber a(-500.0000000000001);
+    IntervalNumber b(1000.0);
+    IntervalNumber c(-2000.0);
+    IntervalNumber s(2.0);
+    IntervalNumber _d1(b + c);
+    IntervalNumber _d2(s * a);
+    IntervalNumber d((b + c) - s * a);
     return 0;
 }
 // int main() {
