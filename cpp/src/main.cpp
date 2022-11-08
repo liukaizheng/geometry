@@ -5,6 +5,7 @@
 #include <numeric>
 #include <triangle/triangle.h>
 #include <vector>
+#include <predicates/interval_number.h>
 
 extern "C" {
 void exactinit();
@@ -39,6 +40,7 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 }
 
 int main() {
+    IntervalNumber a(1.0);
     std::vector<double> point_data{
         0, 0, 0,
         1, 0, 0,

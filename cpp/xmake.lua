@@ -24,7 +24,7 @@ if is_plat("wasm") then
         set_filename("geometry.wasm")
         add_deps("triangle", "predicates")
         add_ldflags("--no-entry", "-sSTANDALONE_WASM")
-        add_ldflags("-sEXPORTED_FUNCTIONS=[_malloc,_free,_exactinit,_triangulate]", {force = true})
+        add_ldflags("-sEXPORTED_FUNCTIONS=[_malloc,_free,_exactinit,_triangulate,_triangulate_polygon_soup]", {force = true})
 else
     target("geometry")
         set_kind("binary")
@@ -34,4 +34,4 @@ else
         set_warnings("everything")
         add_includedirs("$(projectdir)/include", "$(projectdir)/external/eigen")
 end
-
+includes("tests")
