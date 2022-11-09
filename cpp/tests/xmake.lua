@@ -1,7 +1,5 @@
 set_default(false)
-add_requires("gtest")
 add_deps("geometry")
-add_packages("gtest")
 
 target("triangulation_test")
   add_files("test_triangulate.cpp")

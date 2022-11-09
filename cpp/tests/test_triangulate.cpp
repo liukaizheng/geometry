@@ -1,4 +1,5 @@
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 #include <vector>
 
 extern "C" {
@@ -9,7 +10,7 @@ uint32_t* triangulate_polygon_soup(
 );
 }
 
-TEST(Triangulation, PolygonSoup) {
+TEST_CASE("test: triangulate a cube") {
     std::vector<double> point_data {
         0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
     };
@@ -28,10 +29,5 @@ TEST(Triangulation, PolygonSoup) {
         &n_triangles
     );
     delete[] result;
-    EXPECT_EQ(n_triangles, 12);
-}
-
-int main(int argc, char** argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    CHECK(n_triangles ==  12);
 }

@@ -1,5 +1,6 @@
 add_rules("mode.debug", "mode.release")
 set_warnings("everything")
+
 if is_plat("windows") ~= true then
     add_cxxflags("-Wno-c++98-compat")
 end
