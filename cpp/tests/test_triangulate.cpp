@@ -1,9 +1,9 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest/doctest.h"
 #include <vector>
+#include <predicates/predicates.h>
 
 extern "C" {
-void exactinit();
 uint32_t* triangulate_polygon_soup(
     const double* points, const uint32_t* edge_data, const double* axis_data, const uint32_t* seperator,
     const uint32_t n_polygon, uint32_t* n_triangles
@@ -11,6 +11,7 @@ uint32_t* triangulate_polygon_soup(
 }
 
 TEST_CASE("test: triangulate a cube") {
+    exactinit();
     std::vector<double> point_data {
         0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
     };

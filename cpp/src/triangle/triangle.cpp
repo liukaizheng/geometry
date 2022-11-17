@@ -1,3 +1,4 @@
+#include <predicates/predicates.h>
 #include <triangle/triangle.h>
 
 #include <algorithm>
@@ -8,11 +9,6 @@
 #include <numeric>
 #include <stack>
 #include <vector>
-
-extern "C" {
-double orient2d(double*, double*, double*);
-double incircle(double* pa, double* pb, double* pc, double* pd);
-}
 
 constexpr uint32_t INVALID{std::numeric_limits<uint32_t>::max()};
 struct HEdge {

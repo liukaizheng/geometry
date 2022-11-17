@@ -6,9 +6,10 @@
 #include <triangle/triangle.h>
 #include <vector>
 #include <predicates/interval_number.h>
+#include <predicates/generic_point.h>
+#include <predicates/predicates.h>
 
 extern "C" {
-void exactinit();
 uint32_t* triangulate_polygon_soup(
     const double* points, const uint32_t* edge_data, const double* axis_data, const uint32_t* seperator, const uint32_t n_polygon,
      uint32_t* n_triangles
@@ -40,6 +41,7 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 }
 
 int main() {
+    exactinit();
     IntervalNumber a(-500.0000000000001);
     IntervalNumber b(1000.0);
     IntervalNumber c(-2000.0);

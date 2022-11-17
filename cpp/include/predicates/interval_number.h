@@ -2,14 +2,15 @@
 
 #include <cmath>
 #include <limits>
+#include <utility>
 
 static inline double next(const double& a) { return std::nextafter(a, std::numeric_limits<double>::infinity()); }
 
 class IntervalNumber {
   public:
-    IntervalNumber() : inf(-NAN), sup(NAN) {}
+    IntervalNumber() : inf(-std::numeric_limits<double>::quiet_NaN()), sup(std::numeric_limits<double>::quiet_NaN()) {}
     IntervalNumber(const double& a) : inf(-a), sup(a) {}
-    IntervalNumber(const double& inf, const double& sup) : inf(inf), sup(sup) {}
+    IntervalNumber(const double& _inf, const double& _sup) : inf(_inf), sup(_sup) {}
     IntervalNumber& operator=(const IntervalNumber& b) {
         inf = b.inf;
         sup = b.sup;
@@ -45,8 +46,16 @@ class IntervalNumber {
         default:
             break;
         }
-        return IntervalNumber(NAN);
+        return IntervalNumber{};
     }
+
+    bool isNAN() { return sup != sup; }
+    bool isNegative() const { return (sup < 0.0); }
+    bool isPosivite() const { return inf < 0.0; }
+    bool signIsReliable() const { return inf < 0.0 || sup < 0.0; }
+    int sign() const { return inf < 0.0 ? 1 : (sup < 0.0 ? -1 : 0); }
+    void invert() { std::swap(inf, sup); }
+
 
   private:
     double inf;

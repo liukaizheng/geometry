@@ -113,6 +113,7 @@
 /*                                                                           */
 /*****************************************************************************/
 
+#include <corecrt_malloc.h>
 #include <math.h>
 #ifdef CPU86
 #include <float.h>
@@ -136,10 +137,6 @@
 /* #define INEXACT volatile */
 
 #define REAL double                      /* float or double */
-#define REALPRINT doubleprint
-#define REALRAND doublerand
-#define NARROWRAND narrowdoublerand
-#define UNIFORMRAND uniformdoublerand
 
 /* Which of the following two methods of finding the absolute values is      */
 /*   fastest is compiler-dependent.  A few compilers can inline and optimize */
@@ -996,6 +993,63 @@ int linear_expansion_sum_zeroelim(int elen, REAL *e, int flen, REAL *f,
   return hindex;
 }
 
+int fast_expansion_diff_zeroelim(const int elen, const REAL* e, const int flen, const REAL* f, REAL* h) {
+  REAL avirt, bvirt, around, bround, Q, Qn, hh, en = e[0], fn = -f[0];
+  int e_k, f_k, h_k;
+
+  h_k = e_k = f_k = 0;
+  if ((fn > en) == (fn > -en)) {
+    Q = en;
+    e_k++;
+  } else {
+    Q = fn;
+    f_k++;
+  }
+  if ((e_k < elen) && (f_k < flen)) {
+    en = e[e_k];
+    fn = -f[f_k];
+    if ((fn > en) == (fn > -en)) {
+      Fast_Two_Sum(en, Q, Qn, hh);
+      e_k++;
+    } else {
+      Fast_Two_Sum(fn, Q, Qn, hh);
+      f_k++;
+    }
+    Q = Qn;
+    if (hh != 0.0) h[h_k++] = hh;
+    while ((e_k < elen) && (f_k < flen)) {
+      en = e[e_k];
+      fn = -f[f_k];
+      if ((fn > en) == (fn > -en)) {
+        Two_Sum(Q, en, Qn, hh);
+        e_k++;
+      } else {
+        Two_Sum(Q, fn, Qn, hh);
+        f_k++;
+      }
+      Q = Qn;
+      if (hh != 0.0) h[h_k++] = hh;
+    }
+  }
+
+  while (e_k < elen) {
+    en = e[e_k++];
+    Two_Sum(Q, en, Qn, hh);
+    Q = Qn;
+    if (hh != 0.0) h[h_k++] = hh;
+  }
+
+  while (f_k < flen) {
+    fn = -f[f_k++];
+    Two_Sum(Q, fn, Qn, hh);
+    Q = Qn;
+    if (hh != 0.0) h[h_k++] = hh;
+  }
+  if ((Q != 0.0) || (h_k == 0)) h[h_k++] = Q;
+
+  return h_k;
+}
+
 /*****************************************************************************/
 /*                                                                           */
 /*  scale_expansion()   Multiply an expansion by a scalar.                   */
@@ -1093,6 +1147,57 @@ int scale_expansion_zeroelim(int elen, REAL *e, REAL b, REAL *h)
     h[hindex++] = Q;
   }
   return hindex;
+}
+
+static
+int product_expansion_imp(const int elen, const REAL* e, const int flen, const REAL* f, REAL* h) {
+  const int len = (elen * flen) << 1;
+  const int allmem = (len + flen) << 1;
+  REAL ph1_p[1024];
+  REAL* ph1 = (allmem > 1024) ? ((double*) malloc(allmem * sizeof(double))) : (ph1_p);
+  REAL* ph2 = ph1 + len;
+  REAL* th = ph2 + len;
+  REAL* ph[2] = { ph1, ph2};
+  int first = 0;
+  int ph_len = scale_expansion_zeroelim(flen, f, e[0], ph[0]);
+  for (int i = 1; i < elen; i++) {
+    const int th_len = scale_expansion_zeroelim(flen, f, e[i], th);
+    first = i & 1;
+    ph_len = fast_expansion_sum_zeroelim(ph_len, ph[(i + 1) & 1], th_len, th, ph[first]);
+  }
+  if (first != 0) {
+    for (int i = 0; i < ph_len; i++) {
+      h[i] = ph2[i];
+    }
+  } else {
+    for (int i = 0; i < ph_len; i++) {
+      h[i] = ph1[i];
+    }
+  }
+  if (allmem > 1024) {
+    free(ph1);
+  }
+  return ph_len;
+}
+
+int product_expansion_zeroelim(const int elen, const REAL* e, const int flen, const REAL* f, REAL* h)
+{
+  if (elen == 1) {
+    return scale_expansion_zeroelim(flen, f, e[0], h);
+  } else if (flen == 1) {
+    return scale_expansion_zeroelim(elen, e, f[0], h);
+  }
+  if (elen < flen) {
+    return product_expansion_imp(elen, e, flen, f, h);
+  } else {
+    return product_expansion_imp(flen, f, elen, e, h);
+  }
+}
+
+void invert_expansion(int elen, REAL* e) {
+  for (int i = 0; i < elen; i++) {
+    e[i] = -e[i];
+  }
 }
 
 /*****************************************************************************/
