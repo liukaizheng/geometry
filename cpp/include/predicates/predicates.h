@@ -4,12 +4,14 @@ extern "C" {
 void exactinit();
 void initstaticfilter(double, double, double);
 
+int scale_expansion_zeroelim(const int elen, const double* e, const double b, double* h);
 int fast_expansion_diff_zeroelim(const int elen, const double* e, const int flen, const double* f, double* h);
+int product_expansion_zeroelim(const int elen, const double* e, const int flen, const double* f, double* h);
 void invert_expansion(int elen, double* e);
 
 double orient2d(double*, double*, double*);
 double incircle(double* p1, double* p2, double* p3, double* p4);
-int product_expansion_zeroelim(const int elen, const double* e, const int flen, const double* f, double* h);
+
 }
 
 #define Quick_Two_Sum(a, b, x, y)                                                                                      \

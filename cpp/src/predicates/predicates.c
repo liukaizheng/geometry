@@ -1108,8 +1108,7 @@ int scale_expansion(int elen, REAL *e, REAL b, REAL *h)
 /*  will h.)                                                                 */
 /*                                                                           */
 /*****************************************************************************/
-static
-int scale_expansion_zeroelim(int elen, REAL *e, REAL b, REAL *h)
+int scale_expansion_zeroelim(const int elen, const REAL *e, const REAL b, REAL *h)
 /* e and h cannot be the same. */
 {
   INEXACT REAL Q, sum;
