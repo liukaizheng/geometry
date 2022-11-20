@@ -1,6 +1,7 @@
 #include <predicates/generic_point.h>
 #include <predicates/predicates.h>
 
+#include <cmath>
 #include <vector>
 
 inline int orient2d_EEE(const explicitPoint2D& p1, const explicitPoint2D& p2, const explicitPoint2D& p3) {
@@ -519,4 +520,760 @@ void implicitPoint2D_SSI::getExactLambda(double* lx, int& lxl, double* ly, int& 
         invert_expansion(lyl, ly);
         invert_expansion(dl, d);
     }
+}
+
+inline int orient3d_LLLL_interval(
+    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
+    const implicitPoint3D_LPI& p4
+) {
+    if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
+        return IPSign::ZERO;
+    }
+
+    IntervalNumber d1p4x(p1.dfilter[3] * p4.dfilter[0]);
+    IntervalNumber d1p4y(p1.dfilter[3] * p4.dfilter[1]);
+    IntervalNumber d1p4z(p1.dfilter[3] * p4.dfilter[2]);
+    IntervalNumber d2p4x(p2.dfilter[3] * p4.dfilter[0]);
+    IntervalNumber d2p4y(p2.dfilter[3] * p4.dfilter[1]);
+    IntervalNumber d2p4z(p2.dfilter[3] * p4.dfilter[2]);
+    IntervalNumber d3p4x(p3.dfilter[3] * p4.dfilter[0]);
+    IntervalNumber d3p4y(p3.dfilter[3] * p4.dfilter[1]);
+    IntervalNumber d3p4z(p3.dfilter[3] * p4.dfilter[2]);
+    IntervalNumber d4l1x(p4.dfilter[3] * p1.dfilter[0]);
+    IntervalNumber d4l1y(p4.dfilter[3] * p1.dfilter[1]);
+    IntervalNumber d4l1z(p4.dfilter[3] * p1.dfilter[2]);
+    IntervalNumber d4l2x(p4.dfilter[3] * p2.dfilter[0]);
+    IntervalNumber d4l2y(p4.dfilter[3] * p2.dfilter[1]);
+    IntervalNumber d4l2z(p4.dfilter[3] * p2.dfilter[2]);
+    IntervalNumber d4l3x(p4.dfilter[3] * p3.dfilter[0]);
+    IntervalNumber d4l3y(p4.dfilter[3] * p3.dfilter[1]);
+    IntervalNumber d4l3z(p4.dfilter[3] * p3.dfilter[2]);
+    IntervalNumber p1p4x(d4l1x - d1p4x);
+    IntervalNumber p1p4y(d4l1y - d1p4y);
+    IntervalNumber p1p4z(d4l1z - d1p4z);
+    IntervalNumber p2p4x(d4l2x - d2p4x);
+    IntervalNumber p2p4y(d4l2y - d2p4y);
+    IntervalNumber p2p4z(d4l2z - d2p4z);
+    IntervalNumber p3p4x(d4l3x - d3p4x);
+    IntervalNumber p3p4y(d4l3y - d3p4y);
+    IntervalNumber p3p4z(d4l3z - d3p4z);
+    IntervalNumber tmc_a(p1p4x * p2p4y);
+    IntervalNumber tmc_b(p1p4y * p2p4x);
+    IntervalNumber m01(tmc_a - tmc_b);
+    IntervalNumber tmi_a(p1p4x * p2p4z);
+    IntervalNumber tmi_b(p1p4z * p2p4x);
+    IntervalNumber m02(tmi_a - tmi_b);
+    IntervalNumber tma_a(p1p4y * p2p4z);
+    IntervalNumber tma_b(p1p4z * p2p4y);
+    IntervalNumber m12(tma_a - tma_b);
+    IntervalNumber mt1(m01 * p3p4z);
+    IntervalNumber mt2(m02 * p3p4y);
+    IntervalNumber mt3(m12 * p3p4x);
+    IntervalNumber mtt(mt2 - mt1);
+    IntervalNumber m012(mtt - mt3);
+    if (!m012.signIsReliable()) {
+        return IPSign::ZERO;
+    }
+    return m012.sign();
+}
+
+inline int orient3d_LLLL_exact(
+    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
+    const implicitPoint3D_LPI& p4
+) {
+    std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
+    int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
+        d1_len, d2_len, d3_len, d4_len;
+    p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    p2.getExactLambda(l2x, l2x_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len);
+    p3.getExactLambda(l3x, l3x_len, l3y, l3y_len, l3z, l3z_len, d3, d3_len);
+    p4.getExactLambda(l4x, l4x_len, l4y, l4y_len, l4z, l4z_len, d4, d4_len);
+    if (d1.data()[d1_len - 1] == 0.0 || d2.data()[d2_len - 1] == 0.0 || d3.data()[d3_len - 1] == 0.0 ||
+        d4.data()[d4_len - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+
+    std::vector<double> d1p4x(static_cast<uint32_t>((d1_len * l4x_len) << 1));
+    int d1p4x_len = product_expansion_zeroelim(d1_len, d1.data(), l4x_len, l4x.data(), d1p4x.data());
+    std::vector<double> d1p4y(static_cast<uint32_t>((d1_len * l4y_len) << 1));
+    int d1p4y_len = product_expansion_zeroelim(d1_len, d1.data(), l4y_len, l4y.data(), d1p4y.data());
+    std::vector<double> d1p4z(static_cast<uint32_t>((d1_len * l4z_len) << 1));
+    int d1p4z_len = product_expansion_zeroelim(d1_len, d1.data(), l4z_len, l4z.data(), d1p4z.data());
+    std::vector<double> d2p4x(static_cast<uint32_t>((d2_len * l4x_len) << 1));
+    int d2p4x_len = product_expansion_zeroelim(d2_len, d2.data(), l4x_len, l4x.data(), d2p4x.data());
+    std::vector<double> d2p4y(static_cast<uint32_t>((d2_len * l4y_len) << 1));
+    int d2p4y_len = product_expansion_zeroelim(d2_len, d2.data(), l4y_len, l4y.data(), d2p4y.data());
+    std::vector<double> d2p4z(static_cast<uint32_t>((d2_len * l4z_len) << 1));
+    int d2p4z_len = product_expansion_zeroelim(d2_len, d2.data(), l4z_len, l4z.data(), d2p4z.data());
+    std::vector<double> d3p4x(static_cast<uint32_t>((d3_len * l4x_len) << 1));
+    int d3p4x_len = product_expansion_zeroelim(d3_len, d3.data(), l4x_len, l4x.data(), d3p4x.data());
+    std::vector<double> d3p4y(static_cast<uint32_t>((d3_len * l4y_len) << 1));
+    int d3p4y_len = product_expansion_zeroelim(d3_len, d3.data(), l4y_len, l4y.data(), d3p4y.data());
+    std::vector<double> d3p4z(static_cast<uint32_t>((d3_len * l4z_len) << 1));
+    int d3p4z_len = product_expansion_zeroelim(d3_len, d3.data(), l4z_len, l4z.data(), d3p4z.data());
+    std::vector<double> d4l1x(static_cast<uint32_t>((d4_len * l1x_len) << 1));
+    int d4l1x_len = product_expansion_zeroelim(d4_len, d4.data(), l1x_len, l1x.data(), d4l1x.data());
+    std::vector<double> d4l1y(static_cast<uint32_t>((d4_len * l1y_len) << 1));
+    int d4l1y_len = product_expansion_zeroelim(d4_len, d4.data(), l1y_len, l1y.data(), d4l1y.data());
+    std::vector<double> d4l1z(static_cast<uint32_t>((d4_len * l1z_len) << 1));
+    int d4l1z_len = product_expansion_zeroelim(d4_len, d4.data(), l1z_len, l1z.data(), d4l1z.data());
+    std::vector<double> d4l2x(static_cast<uint32_t>((d4_len * l2x_len) << 1));
+    int d4l2x_len = product_expansion_zeroelim(d4_len, d4.data(), l2x_len, l2x.data(), d4l2x.data());
+    std::vector<double> d4l2y(static_cast<uint32_t>((d4_len * l2y_len) << 1));
+    int d4l2y_len = product_expansion_zeroelim(d4_len, d4.data(), l2y_len, l2y.data(), d4l2y.data());
+    std::vector<double> d4l2z(static_cast<uint32_t>((d4_len * l2z_len) << 1));
+    int d4l2z_len = product_expansion_zeroelim(d4_len, d4.data(), l2z_len, l2z.data(), d4l2z.data());
+    std::vector<double> d4l3x(static_cast<uint32_t>((d4_len * l3x_len) << 1));
+    int d4l3x_len = product_expansion_zeroelim(d4_len, d4.data(), l3x_len, l3x.data(), d4l3x.data());
+    std::vector<double> d4l3y(static_cast<uint32_t>((d4_len * l3y_len) << 1));
+    int d4l3y_len = product_expansion_zeroelim(d4_len, d4.data(), l3y_len, l3y.data(), d4l3y.data());
+    std::vector<double> d4l3z(static_cast<uint32_t>((d4_len * l3z_len) << 1));
+    int d4l3z_len = product_expansion_zeroelim(d4_len, d4.data(), l3z_len, l3z.data(), d4l3z.data());
+    std::vector<double> p1p4x(static_cast<uint32_t>(d4l1x_len + d1p4x_len));
+    int p1p4x_len = fast_expansion_diff_zeroelim(d4l1x_len, d4l1x.data(), d1p4x_len, d1p4x.data(), p1p4x.data());
+    std::vector<double> p1p4y(static_cast<uint32_t>(d4l1y_len + d1p4y_len));
+    int p1p4y_len = fast_expansion_diff_zeroelim(d4l1y_len, d4l1y.data(), d1p4y_len, d1p4y.data(), p1p4y.data());
+    std::vector<double> p1p4z(static_cast<uint32_t>(d4l1z_len + d1p4z_len));
+    int p1p4z_len = fast_expansion_diff_zeroelim(d4l1z_len, d4l1z.data(), d1p4z_len, d1p4z.data(), p1p4z.data());
+    std::vector<double> p2p4x(static_cast<uint32_t>(d4l2x_len + d2p4x_len));
+    int p2p4x_len = fast_expansion_diff_zeroelim(d4l2x_len, d4l2x.data(), d2p4x_len, d2p4x.data(), p2p4x.data());
+    std::vector<double> p2p4y(static_cast<uint32_t>(d4l2y_len + d2p4y_len));
+    int p2p4y_len = fast_expansion_diff_zeroelim(d4l2y_len, d4l2y.data(), d2p4y_len, d2p4y.data(), p2p4y.data());
+    std::vector<double> p2p4z(static_cast<uint32_t>(d4l2z_len + d2p4z_len));
+    int p2p4z_len = fast_expansion_diff_zeroelim(d4l2z_len, d4l2z.data(), d2p4z_len, d2p4z.data(), p2p4z.data());
+    std::vector<double> p3p4x(static_cast<uint32_t>(d4l3x_len + d3p4x_len));
+    int p3p4x_len = fast_expansion_diff_zeroelim(d4l3x_len, d4l3x.data(), d3p4x_len, d3p4x.data(), p3p4x.data());
+    std::vector<double> p3p4y(static_cast<uint32_t>(d4l3y_len + d3p4y_len));
+    int p3p4y_len = fast_expansion_diff_zeroelim(d4l3y_len, d4l3y.data(), d3p4y_len, d3p4y.data(), p3p4y.data());
+    std::vector<double> p3p4z(static_cast<uint32_t>(d4l3z_len + d3p4z_len));
+    int p3p4z_len = fast_expansion_diff_zeroelim(d4l3z_len, d4l3z.data(), d3p4z_len, d3p4z.data(), p3p4z.data());
+    std::vector<double> tmc_a(static_cast<uint32_t>((p1p4x_len * p2p4y_len) << 1));
+    int tmc_a_len = product_expansion_zeroelim(p1p4x_len, p1p4x.data(), p2p4y_len, p2p4y.data(), tmc_a.data());
+    std::vector<double> tmc_b(static_cast<uint32_t>((p1p4y_len * p2p4x_len) << 1));
+    int tmc_b_len = product_expansion_zeroelim(p1p4y_len, p1p4y.data(), p2p4x_len, p2p4x.data(), tmc_b.data());
+    std::vector<double> m01(static_cast<uint32_t>(tmc_a_len + tmc_b_len));
+    int m01_len = fast_expansion_diff_zeroelim(tmc_a_len, tmc_a.data(), tmc_b_len, tmc_b.data(), m01.data());
+    std::vector<double> tmi_a(static_cast<uint32_t>((p1p4x_len * p2p4z_len) << 1));
+    int tmi_a_len = product_expansion_zeroelim(p1p4x_len, p1p4x.data(), p2p4z_len, p2p4z.data(), tmi_a.data());
+    std::vector<double> tmi_b(static_cast<uint32_t>((p1p4z_len * p2p4x_len) << 1));
+    int tmi_b_len = product_expansion_zeroelim(p1p4z_len, p1p4z.data(), p2p4x_len, p2p4x.data(), tmi_b.data());
+    std::vector<double> m02(static_cast<uint32_t>(tmi_a_len + tmi_b_len));
+    int m02_len = fast_expansion_diff_zeroelim(tmi_a_len, tmi_a.data(), tmi_b_len, tmi_b.data(), m02.data());
+    std::vector<double> tma_a(static_cast<uint32_t>((p1p4y_len * p2p4z_len) << 1));
+    int tma_a_len = product_expansion_zeroelim(p1p4y_len, p1p4y.data(), p2p4z_len, p2p4z.data(), tma_a.data());
+    std::vector<double> tma_b(static_cast<uint32_t>((p1p4z_len * p2p4y_len) << 1));
+    int tma_b_len = product_expansion_zeroelim(p1p4z_len, p1p4z.data(), p2p4y_len, p2p4y.data(), tma_b.data());
+    std::vector<double> m12(static_cast<uint32_t>(tma_a_len + tma_b_len));
+    int m12_len = fast_expansion_diff_zeroelim(tma_a_len, tma_a.data(), tma_b_len, tma_b.data(), m12.data());
+    std::vector<double> mt1(static_cast<uint32_t>((m01_len * p3p4z_len) << 1));
+    int mt1_len = product_expansion_zeroelim(m01_len, m01.data(), p3p4z_len, p3p4z.data(), mt1.data());
+    std::vector<double> mt2(static_cast<uint32_t>((m02_len * p3p4y_len) << 1));
+    int mt2_len = product_expansion_zeroelim(m02_len, m02.data(), p3p4y_len, p3p4y.data(), mt2.data());
+    std::vector<double> mt3(static_cast<uint32_t>((m12_len * p3p4x_len) << 1));
+    int mt3_len = product_expansion_zeroelim(m12_len, m12.data(), p3p4x_len, p3p4x.data(), mt3.data());
+    std::vector<double> mtt(static_cast<uint32_t>(mt2_len + mt1_len));
+    int mtt_len = fast_expansion_diff_zeroelim(mt2_len, mt2.data(), mt1_len, mt1.data(), mtt.data());
+    std::vector<double> m012(static_cast<uint32_t>(mtt_len + mt3_len));
+    int m012_len = fast_expansion_diff_zeroelim(mtt_len, mtt.data(), mt3_len, mt3.data(), m012.data());
+    if (m012.data()[m012_len - 1] > 0) {
+        return IPSign::POSITIVE;
+    } else if (m012.data()[m012_len - 1] < 0) {
+        return IPSign::NEGATIVE;
+    } else {
+        return IPSign::ZERO;
+    }
+}
+
+inline int orient3d_LLLL(
+    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
+    const implicitPoint3D_LPI& p4
+) {
+    int ret = orient3d_LLLL_interval(p1, p2, p3, p4);
+    if (ret != 0) {
+        return ret;
+    }
+    return orient3d_LLLL_exact(p1, p2, p3, p4);
+}
+
+int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const genericPoint& c, const genericPoint& d) {
+    const int val = a.get_type() * 3 * 3 * 3 + b.get_type() * 3 * 3 + c.get_type() * 3 + d.get_type();
+    switch (val) {
+    case 0: {
+        const double ret =
+            orient3d(a.toExplicit3D().ptr(), b.toExplicit3D().ptr(), c.toExplicit3D().ptr(), d.toExplicit3D().ptr());
+        return (ret > 0.0) - (ret < 0.0);
+    }
+    case 40:
+        return orient3d_LLLL(a.toLPI(), b.toLPI(), c.toLPI(), d.toLPI());
+    }
+    return 0;
+}
+
+inline bool lambda3d_LPI_interval(
+    const IntervalNumber& px, const IntervalNumber& py, const IntervalNumber& pz, const IntervalNumber& qx,
+    const IntervalNumber& qy, const IntervalNumber& qz, const IntervalNumber& rx, const IntervalNumber& ry,
+    const IntervalNumber& rz, const IntervalNumber& sx, const IntervalNumber& sy, const IntervalNumber& sz,
+    const IntervalNumber& tx, const IntervalNumber& ty, const IntervalNumber& tz, IntervalNumber* dfilter
+) {
+    IntervalNumber a11(px - qx);
+    IntervalNumber a12(py - qy);
+    IntervalNumber a13(pz - qz);
+    IntervalNumber a21(sx - rx);
+    IntervalNumber a22(sy - ry);
+    IntervalNumber a23(sz - rz);
+    IntervalNumber a31(tx - rx);
+    IntervalNumber a32(ty - ry);
+    IntervalNumber a33(tz - rz);
+    IntervalNumber tv1(a22 * a33);
+    IntervalNumber tv2(a23 * a32);
+    IntervalNumber a2233(tv1 - tv2);
+    IntervalNumber tv3(a21 * a33);
+    IntervalNumber tv4(a23 * a31);
+    IntervalNumber a2133(tv3 - tv4);
+    IntervalNumber tv5(a21 * a32);
+    IntervalNumber tv6(a22 * a31);
+    IntervalNumber a2132(tv5 - tv6);
+    IntervalNumber tv7(a11 * a2233);
+    IntervalNumber tv8(a12 * a2133);
+    IntervalNumber tv9(a13 * a2132);
+    IntervalNumber tt1(tv7 - tv8);
+    dfilter[3] = tt1 + tv9;
+    IntervalNumber px_rx(px - rx);
+    IntervalNumber py_ry(py - ry);
+    IntervalNumber pz_rz(pz - rz);
+    IntervalNumber tt2(py_ry * a2133);
+    IntervalNumber tt3(px_rx * a2233);
+    IntervalNumber tt4(pz_rz * a2132);
+    IntervalNumber tt5(tt3 + tt4);
+    IntervalNumber n(tt5 - tt2);
+    IntervalNumber ax(a11 * n);
+    IntervalNumber ay(a12 * n);
+    IntervalNumber az(a13 * n);
+    IntervalNumber dpx(dfilter[3] * px);
+    IntervalNumber dpy(dfilter[3] * py);
+    IntervalNumber dpz(dfilter[3] * pz);
+    dfilter[0] = dpx - ax;
+    dfilter[1] = dpy - ay;
+    dfilter[2] = dpz - az;
+    return dfilter[3].signIsReliable();
+}
+
+bool implicitPoint3D_LPI::getIntervalLambda() const {
+    if (needsIntervalLambda()) {
+        lambda3d_LPI_interval(
+            ip.x, ip.y, ip.z, iq.x, iq.y, iq.z, ir.x, ir.y, ir.z, is.x, is.y, is.z, it.x, it.y, it.z, dfilter.data()
+        );
+        if (dfilter[3].isNegative()) {
+            dfilter[0].invert();
+            dfilter[1].invert();
+            dfilter[2].invert();
+            dfilter[3].invert();
+        }
+    }
+    return dfilter[3].signIsReliable();
+}
+
+inline void lambda3d_LPI_exact(
+    const double* p, const double* q, const double* r, const double* s, const double* t, std::vector<double>& lambda_x,
+    int& lambda_x_len, std::vector<double>& lambda_y, int& lambda_y_len, std::vector<double>& lambda_z,
+    int& lambda_z_len, std::vector<double>& lambda_d, int& lambda_d_len
+) {
+    double a11[2];
+    two_diff(p[0], q[0], a11);
+    double a12[2];
+    two_diff(p[1], q[1], a12);
+    double a13[2];
+    two_diff(p[2], q[2], a13);
+    double a21[2];
+    two_diff(s[0], r[0], a21);
+    double a22[2];
+    two_diff(s[1], r[1], a22);
+    double a23[2];
+    two_diff(s[2], r[2], a23);
+    double a31[2];
+    two_diff(t[0], r[0], a31);
+    double a32[2];
+    two_diff(t[1], r[1], a32);
+    double a33[2];
+    two_diff(t[2], r[2], a33);
+    double tv1[8];
+    int tv1_len = product_expansion_zeroelim(2, a22, 2, a33, tv1);
+    double tv2[8];
+    int tv2_len = product_expansion_zeroelim(2, a23, 2, a32, tv2);
+    double a2233[16];
+    int a2233_len = fast_expansion_diff_zeroelim(tv1_len, tv1, tv2_len, tv2, a2233);
+    double tv3[8];
+    int tv3_len = product_expansion_zeroelim(2, a21, 2, a33, tv3);
+    double tv4[8];
+    int tv4_len = product_expansion_zeroelim(2, a23, 2, a31, tv4);
+    double a2133[16];
+    int a2133_len = fast_expansion_diff_zeroelim(tv3_len, tv3, tv4_len, tv4, a2133);
+    double tv5[8];
+    int tv5_len = product_expansion_zeroelim(2, a21, 2, a32, tv5);
+    double tv6[8];
+    int tv6_len = product_expansion_zeroelim(2, a22, 2, a31, tv6);
+    double a2132[16];
+    int a2132_len = fast_expansion_diff_zeroelim(tv5_len, tv5, tv6_len, tv6, a2132);
+    double tv7[64];
+    int tv7_len = product_expansion_zeroelim(2, a11, a2233_len, a2233, tv7);
+    double tv8[64];
+    int tv8_len = product_expansion_zeroelim(2, a12, a2133_len, a2133, tv8);
+    double tv9[64];
+    int tv9_len = product_expansion_zeroelim(2, a13, a2132_len, a2132, tv9);
+    double tt1[128];
+    int tt1_len = fast_expansion_diff_zeroelim(tv7_len, tv7, tv8_len, tv8, tt1);
+    lambda_d.resize(static_cast<uint32_t>(tt1_len + tv9_len));
+    lambda_d_len = fast_expansion_sum_zeroelim(tt1_len, tt1, tv9_len, tv9, lambda_d.data());
+    double px_rx[2];
+    two_diff(p[0], r[0], px_rx);
+    double py_ry[2];
+    two_diff(p[1], r[1], py_ry);
+    double pz_rz[2];
+    two_diff(p[2], r[2], pz_rz);
+    double tt2[64];
+    int tt2_len = product_expansion_zeroelim(2, py_ry, a2133_len, a2133, tt2);
+    double tt3[64];
+    int tt3_len = product_expansion_zeroelim(2, px_rx, a2233_len, a2233, tt3);
+    double tt4[64];
+    int tt4_len = product_expansion_zeroelim(2, pz_rz, a2132_len, a2132, tt4);
+    double tt5[128];
+    int tt5_len = fast_expansion_sum_zeroelim(tt3_len, tt3, tt4_len, tt4, tt5);
+    std::vector<double> n(static_cast<uint32_t>(tt5_len + tt2_len));
+    int n_len = fast_expansion_diff_zeroelim(tt5_len, tt5, tt2_len, tt2, n.data());
+    std::vector<double> ax(static_cast<uint32_t>(n_len << 2));
+    int ax_len = product_expansion_zeroelim(2, a11, n_len, n.data(), ax.data());
+    std::vector<double> ay(static_cast<uint32_t>(n_len << 2));
+    int ay_len = product_expansion_zeroelim(2, a12, n_len, n.data(), ay.data());
+    std::vector<double> az(static_cast<uint32_t>(n_len << 2));
+    int az_len = product_expansion_zeroelim(2, a13, n_len, n.data(), az.data());
+    std::vector<double> dpx(static_cast<uint32_t>(lambda_d_len << 1));
+    int dpx_len = scale_expansion_zeroelim(lambda_d_len, lambda_d.data(), p[0], dpx.data());
+    std::vector<double> dpy(static_cast<uint32_t>(lambda_d_len << 1));
+    int dpy_len = scale_expansion_zeroelim(lambda_d_len, lambda_d.data(), p[1], dpy.data());
+    std::vector<double> dpz(static_cast<uint32_t>(lambda_d_len << 1));
+    int dpz_len = scale_expansion_zeroelim(lambda_d_len, lambda_d.data(), p[2], dpz.data());
+    lambda_x.resize(static_cast<uint32_t>(dpx_len + ax_len));
+    lambda_x_len = fast_expansion_diff_zeroelim(dpx_len, dpx.data(), ax_len, ax.data(), lambda_x.data());
+    lambda_y.resize(static_cast<uint32_t>(dpy_len + ay_len));
+    lambda_y_len = fast_expansion_diff_zeroelim(dpy_len, dpy.data(), ay_len, ay.data(), lambda_y.data());
+    lambda_z.resize(static_cast<uint32_t>(dpz_len + az_len));
+    lambda_z_len = fast_expansion_diff_zeroelim(dpz_len, dpz.data(), az_len, az.data(), lambda_z.data());
+}
+
+
+// Keeps lambda/d pairs as close to one as possible to avoid under/overflows
+inline void normalizeLambda3D(double* lx, int lxl, double* ly, int lyl, double* lz, int lzl, double* d, int dl) {
+    double maxd = -std::numeric_limits<double>::max(), maxsd = 0.0, ad, aad;
+    if ((aad = fabs((ad = estimate(lxl, lx)))) > maxd) {
+        maxd = aad;
+        maxsd = ad;
+    }
+    if ((aad = fabs((ad = estimate(lyl, ly)))) > maxd) {
+        maxd = aad;
+        maxsd = ad;
+    }
+    if ((aad = fabs((ad = estimate(lzl, lz)))) > maxd) {
+        maxd = aad;
+        maxsd = ad;
+    }
+    if ((aad = fabs((ad = estimate(dl, d)))) > maxd) {
+        maxd = aad;
+        maxsd = ad;
+    }
+
+    int e;
+    std::frexp(maxsd, &e);
+    const double m = std::ldexp(2, -e);
+    exact_scale(lxl, lx, m);
+    exact_scale(lyl, ly, m);
+    exact_scale(lzl, lz, m);
+    exact_scale(dl, d, m);
+}
+
+void implicitPoint3D_LPI::getExactLambda(
+    std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
+    std::vector<double>& d, int& dl
+) const {
+    lambda3d_LPI_exact(ip.ptr(), iq.ptr(), ir.ptr(), is.ptr(), it.ptr(), lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] < 0) {
+        invert_expansion(lxl, lx.data());
+        invert_expansion(lyl, ly.data());
+        invert_expansion(lzl, lz.data());
+        invert_expansion(dl, d.data());
+    }
+    normalizeLambda3D(lx.data(), lxl, ly.data(), lyl, lz.data(), lzl, d.data(), dl);
+}
+
+inline bool lambda3d_TPI_interval(
+    const IntervalNumber& ov1x, const IntervalNumber& ov1y, const IntervalNumber& ov1z, const IntervalNumber& ov2x,
+    const IntervalNumber& ov2y, const IntervalNumber& ov2z, const IntervalNumber& ov3x, const IntervalNumber& ov3y,
+    const IntervalNumber& ov3z, const IntervalNumber& ow1x, const IntervalNumber& ow1y, const IntervalNumber& ow1z,
+    const IntervalNumber& ow2x, const IntervalNumber& ow2y, const IntervalNumber& ow2z, const IntervalNumber& ow3x,
+    const IntervalNumber& ow3y, const IntervalNumber& ow3z, const IntervalNumber& ou1x, const IntervalNumber& ou1y,
+    const IntervalNumber& ou1z, const IntervalNumber& ou2x, const IntervalNumber& ou2y, const IntervalNumber& ou2z,
+    const IntervalNumber& ou3x, const IntervalNumber& ou3y, const IntervalNumber& ou3z, IntervalNumber* filters
+) {
+    IntervalNumber v3x(ov3x - ov2x);
+    IntervalNumber v3y(ov3y - ov2y);
+    IntervalNumber v3z(ov3z - ov2z);
+    IntervalNumber v2x(ov2x - ov1x);
+    IntervalNumber v2y(ov2y - ov1y);
+    IntervalNumber v2z(ov2z - ov1z);
+    IntervalNumber w3x(ow3x - ow2x);
+    IntervalNumber w3y(ow3y - ow2y);
+    IntervalNumber w3z(ow3z - ow2z);
+    IntervalNumber w2x(ow2x - ow1x);
+    IntervalNumber w2y(ow2y - ow1y);
+    IntervalNumber w2z(ow2z - ow1z);
+    IntervalNumber u3x(ou3x - ou2x);
+    IntervalNumber u3y(ou3y - ou2y);
+    IntervalNumber u3z(ou3z - ou2z);
+    IntervalNumber u2x(ou2x - ou1x);
+    IntervalNumber u2y(ou2y - ou1y);
+    IntervalNumber u2z(ou2z - ou1z);
+    IntervalNumber nvx1(v2y * v3z);
+    IntervalNumber nvx2(v2z * v3y);
+    IntervalNumber nvx(nvx1 - nvx2);
+    IntervalNumber nvy1(v3x * v2z);
+    IntervalNumber nvy2(v3z * v2x);
+    IntervalNumber nvy(nvy1 - nvy2);
+    IntervalNumber nvz1(v2x * v3y);
+    IntervalNumber nvz2(v2y * v3x);
+    IntervalNumber nvz(nvz1 - nvz2);
+    IntervalNumber nwx1(w2y * w3z);
+    IntervalNumber nwx2(w2z * w3y);
+    IntervalNumber nwx(nwx1 - nwx2);
+    IntervalNumber nwy1(w3x * w2z);
+    IntervalNumber nwy2(w3z * w2x);
+    IntervalNumber nwy(nwy1 - nwy2);
+    IntervalNumber nwz1(w2x * w3y);
+    IntervalNumber nwz2(w2y * w3x);
+    IntervalNumber nwz(nwz1 - nwz2);
+    IntervalNumber nux1(u2y * u3z);
+    IntervalNumber nux2(u2z * u3y);
+    IntervalNumber nux(nux1 - nux2);
+    IntervalNumber nuy1(u3x * u2z);
+    IntervalNumber nuy2(u3z * u2x);
+    IntervalNumber nuy(nuy1 - nuy2);
+    IntervalNumber nuz1(u2x * u3y);
+    IntervalNumber nuz2(u2y * u3x);
+    IntervalNumber nuz(nuz1 - nuz2);
+    IntervalNumber nwyuz1(nwy * nuz);
+    IntervalNumber nwyuz2(nwz * nuy);
+    IntervalNumber nwyuz(nwyuz1 - nwyuz2);
+    IntervalNumber nwxuz1(nwx * nuz);
+    IntervalNumber nwxuz2(nwz * nux);
+    IntervalNumber nwxuz(nwxuz1 - nwxuz2);
+    IntervalNumber nwxuy1(nwx * nuy);
+    IntervalNumber nwxuy2(nwy * nux);
+    IntervalNumber nwxuy(nwxuy1 - nwxuy2);
+    IntervalNumber nvyuz1(nvy * nuz);
+    IntervalNumber nvyuz2(nvz * nuy);
+    IntervalNumber nvyuz(nvyuz1 - nvyuz2);
+    IntervalNumber nvxuz1(nvx * nuz);
+    IntervalNumber nvxuz2(nvz * nux);
+    IntervalNumber nvxuz(nvxuz1 - nvxuz2);
+    IntervalNumber nvxuy1(nvx * nuy);
+    IntervalNumber nvxuy2(nvy * nux);
+    IntervalNumber nvxuy(nvxuy1 - nvxuy2);
+    IntervalNumber nvywz1(nvy * nwz);
+    IntervalNumber nvywz2(nvz * nwy);
+    IntervalNumber nvywz(nvywz1 - nvywz2);
+    IntervalNumber nvxwz1(nvx * nwz);
+    IntervalNumber nvxwz2(nvz * nwx);
+    IntervalNumber nvxwz(nvxwz1 - nvxwz2);
+    IntervalNumber nvxwy1(nvx * nwy);
+    IntervalNumber nvxwy2(nvy * nwx);
+    IntervalNumber nvxwy(nvxwy1 - nvxwy2);
+    IntervalNumber p1a(nvx * ov1x);
+    IntervalNumber p1b(nvy * ov1y);
+    IntervalNumber p1c(nvz * ov1z);
+    IntervalNumber p1ab(p1a + p1b);
+    IntervalNumber p1(p1ab + p1c);
+    IntervalNumber p2a(nwx * ow1x);
+    IntervalNumber p2b(nwy * ow1y);
+    IntervalNumber p2c(nwz * ow1z);
+    IntervalNumber p2ab(p2a + p2b);
+    IntervalNumber p2(p2ab + p2c);
+    IntervalNumber p3a(nux * ou1x);
+    IntervalNumber p3b(nuy * ou1y);
+    IntervalNumber p3c(nuz * ou1z);
+    IntervalNumber p3ab(p3a + p3b);
+    IntervalNumber p3(p3ab + p3c);
+    IntervalNumber lxa(p1 * nwyuz);
+    IntervalNumber lxb(p3 * nvywz);
+    IntervalNumber lxc(p2 * nvyuz);
+    IntervalNumber lxab(lxa + lxb);
+    filters[0] = lxab - lxc;
+    IntervalNumber lya(p2 * nvxuz);
+    IntervalNumber lyb(p3 * nvxwz);
+    IntervalNumber lyc(p1 * nwxuz);
+    IntervalNumber lybc(lyc + lyb);
+    filters[1] = lya - lybc;
+    IntervalNumber lza(p3 * nvxwy);
+    IntervalNumber lzb(p1 * nwxuy);
+    IntervalNumber lzc(p2 * nvxuy);
+    IntervalNumber lzab(lza + lzb);
+    filters[2] = lzab - lzc;
+    IntervalNumber da(nvx * nwyuz);
+    IntervalNumber db(nvz * nwxuy);
+    IntervalNumber dc(nvy * nwxuz);
+    IntervalNumber dab(da + db);
+    filters[3] = dab - dc;
+    return filters[3].signIsReliable();
+}
+
+inline void lambda3d_TPI_exact(
+    const double* ov1, const double* ov2, const double* ov3, const double* ow1, const double* ow2, const double* ow3,
+    const double* ou1, const double* ou2, const double* ou3, std::vector<double>& lambda_x, int& lambda_x_len,
+    std::vector<double>& lambda_y, int& lambda_y_len, std::vector<double>& lambda_z, int& lambda_z_len,
+    std::vector<double>& lambda_d, int& lambda_d_len
+) {
+    double v3x[2];
+    two_diff(ov3[0], ov2[0], v3x);
+    double v3y[2];
+    two_diff(ov3[1], ov2[1], v3y);
+    double v3z[2];
+    two_diff(ov3[2], ov2[2], v3z);
+    double v2x[2];
+    two_diff(ov2[0], ov1[0], v2x);
+    double v2y[2];
+    two_diff(ov2[1], ov1[1], v2y);
+    double v2z[2];
+    two_diff(ov2[2], ov1[2], v2z);
+    double w3x[2];
+    two_diff(ow3[0], ow2[0], w3x);
+    double w3y[2];
+    two_diff(ow3[1], ow2[1], w3y);
+    double w3z[2];
+    two_diff(ow3[2], ow2[2], w3z);
+    double w2x[2];
+    two_diff(ow2[0], ow1[0], w2x);
+    double w2y[2];
+    two_diff(ow2[1], ow1[1], w2y);
+    double w2z[2];
+    two_diff(ow2[2], ow1[2], w2z);
+    double u3x[2];
+    two_diff(ou3[0], ou2[0], u3x);
+    double u3y[2];
+    two_diff(ou3[1], ou2[1], u3y);
+    double u3z[2];
+    two_diff(ou3[2], ou2[2], u3z);
+    double u2x[2];
+    two_diff(ou2[0], ou1[0], u2x);
+    double u2y[2];
+    two_diff(ou2[1], ou1[1], u2y);
+    double u2z[2];
+    two_diff(ou2[2], ou1[2], u2z);
+    double nvx1[8];
+    int nvx1_len = product_expansion_zeroelim(2, v2y, 2, v3z, nvx1);
+    double nvx2[8];
+    int nvx2_len = product_expansion_zeroelim(2, v2z, 2, v3y, nvx2);
+    double nvx[16];
+    int nvx_len = fast_expansion_diff_zeroelim(nvx1_len, nvx1, nvx2_len, nvx2, nvx);
+    double nvy1[8];
+    int nvy1_len = product_expansion_zeroelim(2, v3x, 2, v2z, nvy1);
+    double nvy2[8];
+    int nvy2_len = product_expansion_zeroelim(2, v3z, 2, v2x, nvy2);
+    double nvy[16];
+    int nvy_len = fast_expansion_diff_zeroelim(nvy1_len, nvy1, nvy2_len, nvy2, nvy);
+    double nvz1[8];
+    int nvz1_len = product_expansion_zeroelim(2, v2x, 2, v3y, nvz1);
+    double nvz2[8];
+    int nvz2_len = product_expansion_zeroelim(2, v2y, 2, v3x, nvz2);
+    double nvz[16];
+    int nvz_len = fast_expansion_diff_zeroelim(nvz1_len, nvz1, nvz2_len, nvz2, nvz);
+    double nwx1[8];
+    int nwx1_len = product_expansion_zeroelim(2, w2y, 2, w3z, nwx1);
+    double nwx2[8];
+    int nwx2_len = product_expansion_zeroelim(2, w2z, 2, w3y, nwx2);
+    double nwx[16];
+    int nwx_len = fast_expansion_diff_zeroelim(nwx1_len, nwx1, nwx2_len, nwx2, nwx);
+    double nwy1[8];
+    int nwy1_len = product_expansion_zeroelim(2, w3x, 2, w2z, nwy1);
+    double nwy2[8];
+    int nwy2_len = product_expansion_zeroelim(2, w3z, 2, w2x, nwy2);
+    double nwy[16];
+    int nwy_len = fast_expansion_diff_zeroelim(nwy1_len, nwy1, nwy2_len, nwy2, nwy);
+    double nwz1[8];
+    int nwz1_len = product_expansion_zeroelim(2, w2x, 2, w3y, nwz1);
+    double nwz2[8];
+    int nwz2_len = product_expansion_zeroelim(2, w2y, 2, w3x, nwz2);
+    double nwz[16];
+    int nwz_len = fast_expansion_diff_zeroelim(nwz1_len, nwz1, nwz2_len, nwz2, nwz);
+    double nux1[8];
+    int nux1_len = product_expansion_zeroelim(2, u2y, 2, u3z, nux1);
+    double nux2[8];
+    int nux2_len = product_expansion_zeroelim(2, u2z, 2, u3y, nux2);
+    double nux[16];
+    int nux_len = fast_expansion_diff_zeroelim(nux1_len, nux1, nux2_len, nux2, nux);
+    double nuy1[8];
+    int nuy1_len = product_expansion_zeroelim(2, u3x, 2, u2z, nuy1);
+    double nuy2[8];
+    int nuy2_len = product_expansion_zeroelim(2, u3z, 2, u2x, nuy2);
+    double nuy[16];
+    int nuy_len = fast_expansion_diff_zeroelim(nuy1_len, nuy1, nuy2_len, nuy2, nuy);
+    double nuz1[8];
+    int nuz1_len = product_expansion_zeroelim(2, u2x, 2, u3y, nuz1);
+    double nuz2[8];
+    int nuz2_len = product_expansion_zeroelim(2, u2y, 2, u3x, nuz2);
+    double nuz[16];
+    int nuz_len = fast_expansion_diff_zeroelim(nuz1_len, nuz1, nuz2_len, nuz2, nuz);
+    std::vector<double> nwyuz1(static_cast<uint32_t>((nwy_len * nuz_len) << 1));
+    int nwyuz1_len = product_expansion_zeroelim(nwy_len, nwy, nuz_len, nuz, nwyuz1.data());
+    std::vector<double> nwyuz2(static_cast<uint32_t>((nwz_len * nuy_len) << 1));
+    int nwyuz2_len = product_expansion_zeroelim(nwz_len, nwz, nuy_len, nuy, nwyuz2.data());
+    std::vector<double> nwyuz(static_cast<uint32_t>(nwyuz1_len + nwyuz2_len));
+    int nwyuz_len = fast_expansion_diff_zeroelim(nwyuz1_len, nwyuz1.data(), nwyuz2_len, nwyuz2.data(), nwyuz.data());
+    std::vector<double> nwxuz1(static_cast<uint32_t>((nwx_len * nuz_len) << 1));
+    int nwxuz1_len = product_expansion_zeroelim(nwx_len, nwx, nuz_len, nuz, nwxuz1.data());
+    std::vector<double> nwxuz2(static_cast<uint32_t>((nwz_len * nux_len) << 1));
+    int nwxuz2_len = product_expansion_zeroelim(nwz_len, nwz, nux_len, nux, nwxuz2.data());
+    std::vector<double> nwxuz(static_cast<uint32_t>(nwxuz1_len + nwxuz2_len));
+    int nwxuz_len = fast_expansion_diff_zeroelim(nwxuz1_len, nwxuz1.data(), nwxuz2_len, nwxuz2.data(), nwxuz.data());
+    std::vector<double> nwxuy1(static_cast<uint32_t>((nwx_len * nuy_len) << 1));
+    int nwxuy1_len = product_expansion_zeroelim(nwx_len, nwx, nuy_len, nuy, nwxuy1.data());
+    std::vector<double> nwxuy2(static_cast<uint32_t>((nwy_len * nux_len) << 1));
+    int nwxuy2_len = product_expansion_zeroelim(nwy_len, nwy, nux_len, nux, nwxuy2.data());
+    std::vector<double> nwxuy(static_cast<uint32_t>(nwxuy1_len + nwxuy2_len));
+    int nwxuy_len = fast_expansion_diff_zeroelim(nwxuy1_len, nwxuy1.data(), nwxuy2_len, nwxuy2.data(), nwxuy.data());
+    std::vector<double> nvyuz1(static_cast<uint32_t>((nvy_len * nuz_len) << 1));
+    int nvyuz1_len = product_expansion_zeroelim(nvy_len, nvy, nuz_len, nuz, nvyuz1.data());
+    std::vector<double> nvyuz2(static_cast<uint32_t>((nvz_len * nuy_len) << 1));
+    int nvyuz2_len = product_expansion_zeroelim(nvz_len, nvz, nuy_len, nuy, nvyuz2.data());
+    std::vector<double> nvyuz(static_cast<uint32_t>(nvyuz1_len + nvyuz2_len));
+    int nvyuz_len = fast_expansion_diff_zeroelim(nvyuz1_len, nvyuz1.data(), nvyuz2_len, nvyuz2.data(), nvyuz.data());
+    std::vector<double> nvxuz1(static_cast<uint32_t>((nvx_len * nuz_len) << 1));
+    int nvxuz1_len = product_expansion_zeroelim(nvx_len, nvx, nuz_len, nuz, nvxuz1.data());
+    std::vector<double> nvxuz2(static_cast<uint32_t>((nvz_len * nux_len) << 1));
+    int nvxuz2_len = product_expansion_zeroelim(nvz_len, nvz, nux_len, nux, nvxuz2.data());
+    std::vector<double> nvxuz(static_cast<uint32_t>(nvxuz1_len + nvxuz2_len));
+    int nvxuz_len = fast_expansion_diff_zeroelim(nvxuz1_len, nvxuz1.data(), nvxuz2_len, nvxuz2.data(), nvxuz.data());
+    std::vector<double> nvxuy1(static_cast<uint32_t>((nvx_len * nuy_len) << 1));
+    int nvxuy1_len = product_expansion_zeroelim(nvx_len, nvx, nuy_len, nuy, nvxuy1.data());
+    std::vector<double> nvxuy2(static_cast<uint32_t>((nvy_len * nux_len) << 1));
+    int nvxuy2_len = product_expansion_zeroelim(nvy_len, nvy, nux_len, nux, nvxuy2.data());
+    std::vector<double> nvxuy(static_cast<uint32_t>(nvxuy1_len + nvxuy2_len));
+    int nvxuy_len = fast_expansion_diff_zeroelim(nvxuy1_len, nvxuy1.data(), nvxuy2_len, nvxuy2.data(), nvxuy.data());
+    std::vector<double> nvywz1(static_cast<uint32_t>((nvy_len * nwz_len) << 1));
+    int nvywz1_len = product_expansion_zeroelim(nvy_len, nvy, nwz_len, nwz, nvywz1.data());
+    std::vector<double> nvywz2(static_cast<uint32_t>((nvz_len * nwy_len) << 1));
+    int nvywz2_len = product_expansion_zeroelim(nvz_len, nvz, nwy_len, nwy, nvywz2.data());
+    std::vector<double> nvywz(static_cast<uint32_t>(nvywz1_len + nvywz2_len));
+    int nvywz_len = fast_expansion_diff_zeroelim(nvywz1_len, nvywz1.data(), nvywz2_len, nvywz2.data(), nvywz.data());
+    std::vector<double> nvxwz1(static_cast<uint32_t>((nvx_len * nwz_len) << 1));
+    int nvxwz1_len = product_expansion_zeroelim(nvx_len, nvx, nwz_len, nwz, nvxwz1.data());
+    std::vector<double> nvxwz2(static_cast<uint32_t>((nvz_len * nwx_len) << 1));
+    int nvxwz2_len = product_expansion_zeroelim(nvz_len, nvz, nwx_len, nwx, nvxwz2.data());
+    std::vector<double> nvxwz(static_cast<uint32_t>(nvxwz1_len + nvxwz2_len));
+    int nvxwz_len = fast_expansion_diff_zeroelim(nvxwz1_len, nvxwz1.data(), nvxwz2_len, nvxwz2.data(), nvxwz.data());
+    std::vector<double> nvxwy1(static_cast<uint32_t>((nvx_len * nwy_len) << 1));
+    int nvxwy1_len = product_expansion_zeroelim(nvx_len, nvx, nwy_len, nwy, nvxwy1.data());
+    std::vector<double> nvxwy2(static_cast<uint32_t>((nvy_len * nwx_len) << 1));
+    int nvxwy2_len = product_expansion_zeroelim(nvy_len, nvy, nwx_len, nwx, nvxwy2.data());
+    std::vector<double> nvxwy(static_cast<uint32_t>(nvxwy1_len + nvxwy2_len));
+    int nvxwy_len = fast_expansion_diff_zeroelim(nvxwy1_len, nvxwy1.data(), nvxwy2_len, nvxwy2.data(), nvxwy.data());
+    std::vector<double> p1a(static_cast<uint32_t>(nvx_len << 1));
+    int p1a_len = scale_expansion_zeroelim(nvx_len, nvx, ov1[0], p1a.data());
+    std::vector<double> p1b(static_cast<uint32_t>(nvy_len << 1));
+    int p1b_len = scale_expansion_zeroelim(nvy_len, nvy, ov1[1], p1b.data());
+    std::vector<double> p1c(static_cast<uint32_t>(nvz_len << 1));
+    int p1c_len = scale_expansion_zeroelim(nvz_len, nvz, ov1[2], p1c.data());
+    std::vector<double> p1ab(static_cast<uint32_t>(p1a_len + p1b_len));
+    int p1ab_len = fast_expansion_sum_zeroelim(p1a_len, p1a.data(), p1b_len, p1b.data(), p1ab.data());
+    std::vector<double> p1(static_cast<uint32_t>(p1ab_len + p1c_len));
+    int p1_len = fast_expansion_sum_zeroelim(p1ab_len, p1ab.data(), p1c_len, p1c.data(), p1.data());
+    std::vector<double> p2a(static_cast<uint32_t>(nwx_len << 1));
+    int p2a_len = scale_expansion_zeroelim(nwx_len, nwx, ow1[0], p2a.data());
+    std::vector<double> p2b(static_cast<uint32_t>(nwy_len << 1));
+    int p2b_len = scale_expansion_zeroelim(nwy_len, nwy, ow1[1], p2b.data());
+    std::vector<double> p2c(static_cast<uint32_t>(nwz_len << 1));
+    int p2c_len = scale_expansion_zeroelim(nwz_len, nwz, ow1[2], p2c.data());
+    std::vector<double> p2ab(static_cast<uint32_t>(p2a_len + p2b_len));
+    int p2ab_len = fast_expansion_sum_zeroelim(p2a_len, p2a.data(), p2b_len, p2b.data(), p2ab.data());
+    std::vector<double> p2(static_cast<uint32_t>(p2ab_len + p2c_len));
+    int p2_len = fast_expansion_sum_zeroelim(p2ab_len, p2ab.data(), p2c_len, p2c.data(), p2.data());
+    std::vector<double> p3a(static_cast<uint32_t>(nux_len << 1));
+    int p3a_len = scale_expansion_zeroelim(nux_len, nux, ou1[0], p3a.data());
+    std::vector<double> p3b(static_cast<uint32_t>(nuy_len << 1));
+    int p3b_len = scale_expansion_zeroelim(nuy_len, nuy, ou1[1], p3b.data());
+    std::vector<double> p3c(static_cast<uint32_t>(nuz_len << 1));
+    int p3c_len = scale_expansion_zeroelim(nuz_len, nuz, ou1[2], p3c.data());
+    std::vector<double> p3ab(static_cast<uint32_t>(p3a_len + p3b_len));
+    int p3ab_len = fast_expansion_sum_zeroelim(p3a_len, p3a.data(), p3b_len, p3b.data(), p3ab.data());
+    std::vector<double> p3(static_cast<uint32_t>(p3ab_len + p3c_len));
+    int p3_len = fast_expansion_sum_zeroelim(p3ab_len, p3ab.data(), p3c_len, p3c.data(), p3.data());
+    std::vector<double> lxa(static_cast<uint32_t>(p1_len * nwyuz_len) << 1);
+    int lxa_len = product_expansion_zeroelim(p1_len, p1.data(), nwyuz_len, nwyuz.data(), lxa.data());
+    std::vector<double> lxb(static_cast<uint32_t>(p3_len * nvywz_len) << 1);
+    int lxb_len = product_expansion_zeroelim(p3_len, p3.data(), nvywz_len, nvywz.data(), lxb.data());
+    std::vector<double> lxc(static_cast<uint32_t>((p2_len * nvyuz_len) << 1));
+    int lxc_len = product_expansion_zeroelim(p2_len, p2.data(), nvyuz_len, nvyuz.data(), lxc.data());
+    std::vector<double> lxab(static_cast<uint32_t>(lxa_len + lxb_len));
+    int lxab_len = fast_expansion_sum_zeroelim(lxa_len, lxa.data(), lxb_len, lxb.data(), lxab.data());
+    lambda_x.resize(static_cast<uint32_t>(lxab_len + lxc_len));
+    lambda_x_len = fast_expansion_diff_zeroelim(lxab_len, lxab.data(), lxc_len, lxc.data(), lambda_x.data());
+    std::vector<double> lya(static_cast<uint32_t>((p2_len * nvxuz_len) << 1));
+    int lya_len = product_expansion_zeroelim(p2_len, p2.data(), nvxuz_len, nvxuz.data(), lya.data());
+    std::vector<double> lyb(static_cast<uint32_t>((p3_len * nvxwz_len) << 1));
+    int lyb_len = product_expansion_zeroelim(p3_len, p3.data(), nvxwz_len, nvxwz.data(), lyb.data());
+    std::vector<double> lyc(static_cast<uint32_t>((p1_len * nwxuz_len) << 1));
+    int lyc_len = product_expansion_zeroelim(p1_len, p1.data(), nwxuz_len, nwxuz.data(), lyc.data());
+    std::vector<double> lybc(static_cast<uint32_t>(lyc_len + lyb_len));
+    int lybc_len = fast_expansion_sum_zeroelim(lyc_len, lyc.data(), lyb_len, lyb.data(), lybc.data());
+    lambda_y.resize(static_cast<uint32_t>(lya_len + lybc_len));
+    lambda_y_len = fast_expansion_diff_zeroelim(lya_len, lya.data(), lybc_len, lybc.data(), lambda_y.data());
+    std::vector<double> lza(static_cast<uint32_t>((p3_len * nvxwy_len) << 1));
+    int lza_len = product_expansion_zeroelim(p3_len, p3.data(), nvxwy_len, nvxwy.data(), lza.data());
+    std::vector<double> lzb(static_cast<uint32_t>((p1_len * nwxuy_len) << 1));
+    int lzb_len = product_expansion_zeroelim(p1_len, p1.data(), nwxuy_len, nwxuy.data(), lzb.data());
+    std::vector<double> lzc(static_cast<uint32_t>((p2_len * nvxuy_len) << 1));
+    int lzc_len = product_expansion_zeroelim(p2_len, p2.data(), nvxuy_len, nvxuy.data(), lzc.data());
+    std::vector<double> lzab(static_cast<uint32_t>(lza_len + lzb_len));
+    int lzab_len = fast_expansion_sum_zeroelim(lza_len, lza.data(), lzb_len, lzb.data(), lzab.data());
+    lambda_z.resize(static_cast<uint32_t>(lzab_len + lzc_len));
+    lambda_z_len = fast_expansion_diff_zeroelim(lzab_len, lzab.data(), lzc_len, lzc.data(), lambda_z.data());
+    std::vector<double> da(static_cast<uint32_t>((nvx_len * nwyuz_len) << 1));
+    int da_len = product_expansion_zeroelim(nvx_len, nvx, nwyuz_len, nwyuz.data(), da.data());
+    std::vector<double> db(static_cast<uint32_t>((nvz_len * nwxuy_len) << 1));
+    int db_len = product_expansion_zeroelim(nvz_len, nvz, nwxuy_len, nwxuy.data(), db.data());
+    std::vector<double> dc(static_cast<uint32_t>((nvy_len * nwxuz_len) << 1));
+    int dc_len = product_expansion_zeroelim(nvy_len, nvy, nwxuz_len, nwxuz.data(), dc.data());
+    std::vector<double> dab(static_cast<uint32_t>(da_len + db_len));
+    int dab_len = fast_expansion_sum_zeroelim(da_len, da.data(), db_len, db.data(), dab.data());
+    lambda_d.resize(static_cast<uint32_t>(dab_len + dc_len));
+    lambda_d_len = fast_expansion_diff_zeroelim(dab_len, dab.data(), dc_len, dc.data(), lambda_d.data());
+}
+
+bool implicitPoint3D_TPI::getIntervalLambda() const {
+    if (needsIntervalLambda()) {
+        lambda3d_TPI_interval(
+            iv1.x, iv1.y, iv1.z, iv2.x, iv2.y, iv2.z, iv3.x, iv3.y, iv3.z, iw1.x, iw1.y, iw1.z, iw2.x, iw2.y, iw2.z,
+            iw3.x, iw3.y, iw3.z, iu1.x, iu1.y, iu1.z, iu2.x, iu2.y, iu2.z, iu3.x, iu3.y, iu3.z, dfilter.data()
+        );
+        if (dfilter[3].isNegative()) {
+            dfilter[0].invert();
+            dfilter[1].invert();
+            dfilter[2].invert();
+            dfilter[3].invert();
+        }
+    }
+    return dfilter[3].signIsReliable();
+}
+
+void implicitPoint3D_TPI::getExactLambda(
+    std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
+    std::vector<double>& d, int& dl
+) const {
+    lambda3d_TPI_exact(
+        iv1.ptr(), iv2.ptr(), iv3.ptr(), iw1.ptr(), iw2.ptr(), iw3.ptr(), iu1.ptr(), iu2.ptr(), iu3.ptr(), lx, lxl, ly,
+        lyl, lz, lzl, d, dl
+    );
+    if (d.data()[dl - 1] < 0) {
+        invert_expansion(lxl, lx.data());
+        invert_expansion(lyl, ly.data());
+        invert_expansion(lxl, lz.data());
+        invert_expansion(dl, d.data());
+    }
+    normalizeLambda3D(lx.data(), lxl, ly.data(), lyl, lz.data(), lzl, d.data(), dl);
 }

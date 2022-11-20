@@ -793,8 +793,7 @@ static int fast_expansion_sum(int elen, REAL *e, int flen, REAL *f, REAL *h)
 /*  properties.                                                              */
 /*                                                                           */
 /*****************************************************************************/
-static
-int fast_expansion_sum_zeroelim(int elen, REAL *e, int flen, REAL *f, REAL *h)
+int fast_expansion_sum_zeroelim(const int elen, const REAL *e, const int flen, const REAL *f, REAL *h)
 /* h cannot be e or f. */
 {
   REAL Q;
@@ -1199,6 +1198,11 @@ void invert_expansion(int elen, REAL* e) {
   }
 }
 
+void exact_scale(const int elen, REAL* e, const REAL b) {
+    for (int i = 0; i < elen; i++) {
+        e[i] *= b;
+    }
+}
 /*****************************************************************************/
 /*                                                                           */
 /*  compress()   Compress an expansion.                                      */
@@ -1253,8 +1257,7 @@ int compress(int elen, REAL *e, REAL *h)
 /*  See either version of my paper for details.                              */
 /*                                                                           */
 /*****************************************************************************/
-static
-REAL estimate(int elen, REAL *e)
+REAL estimate(const int elen, const REAL *e)
 {
   REAL Q;
   int eindex;
@@ -1719,7 +1722,7 @@ REAL orient3dslow(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
   return deter[deterlen - 1];
 }
 
-REAL orient3dadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL permanent)
+REAL orient3dadapt(const REAL *pa, const REAL *pb, const REAL *pc, const REAL *pd, const REAL permanent)
 {
   INEXACT REAL adx, bdx, cdx, ady, bdy, cdy, adz, bdz, cdz;
   REAL det, errbound;
@@ -2121,7 +2124,7 @@ REAL orient3dadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL permanent)
   return finnow[finlength - 1];
 }
 
-REAL orient3d(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
+REAL orient3d(const REAL *pa, const REAL *pb, const REAL *pc, const REAL *pd)
 {
   REAL adx, bdx, cdx, ady, bdy, cdy, adz, bdz, cdz;
   REAL bdxcdy, cdxbdy, cdxady, adxcdy, adxbdy, bdxady;
