@@ -113,7 +113,7 @@
 /*                                                                           */
 /*****************************************************************************/
 
-#include <corecrt_malloc.h>
+#include <stdlib.h>
 #include <math.h>
 #ifdef CPU86
 #include <float.h>

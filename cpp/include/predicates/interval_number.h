@@ -26,7 +26,7 @@ class IntervalNumber {
         const auto sign = [](const IntervalNumber& num) { return std::signbit(num.inf) << 1 | std::signbit(num.sup); };
         switch (sign(*this) << 2 | sign(b)) {
         case 0:
-            return IntervalNumber(next(std::max(inf * b.sup, sup * b.inf)), next(std::max(inf * b.inf, sup * b.sup)));
+            return IntervalNumber(next(std::fmax(inf * b.sup, sup * b.inf)), next(std::fmax(inf * b.inf, sup * b.sup)));
         case 1:
             return IntervalNumber(next(sup * b.inf), next(inf * b.inf));
         case 2:
