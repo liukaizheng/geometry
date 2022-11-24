@@ -60,11 +60,11 @@ inline void two_diff(const double a, const double b, double* xy) {
     Two_Diff(a, b, xy[1], xy[0]);
 }
 inline void two_prod(const double a, const double b, double* xy) {
-    xy[0] = a * b;
+    xy[1] = a * b;
     double _c, _ah, _al, _bh, _bl;
     Split(a, _ah, _al);
     Split(b, _bh, _bl);
-    xy[1] = ((_ah * _bh - xy[0]) + _ah * _bl + _al * _bh) + _al * _bl;
+    xy[0] = ((_ah * _bh - xy[1]) + _ah * _bl + _al * _bh) + _al * _bl;
 }
 inline void two_two_sum(const double* a, const double* b, double* x) {
     double _i, _j, _0, _bv;
