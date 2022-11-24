@@ -139,6 +139,7 @@ class implicitPoint3D_LPI : public genericPoint {
                       {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                        std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0.0}} {}
 
+    bool getFilteredLambda(double& mv) const;
     bool getIntervalLambda() const;
     void getExactLambda(
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
@@ -169,6 +170,7 @@ class implicitPoint3D_TPI : public genericPoint {
                         {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                          std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0.0}} {}
 
+    bool getFilteredLambda(double& mv) const;
     bool getIntervalLambda() const;
     void getExactLambda(
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,

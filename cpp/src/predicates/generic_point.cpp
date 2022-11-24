@@ -525,10 +525,10 @@ void implicitPoint2D_SSI::getExactLambda(double* lx, int& lxl, double* ly, int& 
 inline int orient3d_LLLE_interval(
     const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3, const double*& p4
 ) {
-
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
         return IPSign::ZERO;
     }
+
     IntervalNumber d1p4x(p1.dfilter[3] * p4[0]);
     IntervalNumber d1p4y(p1.dfilter[3] * p4[1]);
     IntervalNumber d1p4z(p1.dfilter[3] * p4[2]);
@@ -788,7 +788,7 @@ inline int orient3d_LLTE_exact(
 inline int orient3d_LLTE(
     const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3, const double* p4
 ) {
-    
+
     int ret = orient3d_LLTE_interval(p1, p2, p3, p4);
     if (ret != 0) {
         return ret;
@@ -2026,6 +2026,90 @@ int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const g
     return 0;
 }
 
+inline bool lambda3d_LPI_filtered(
+    const double* p, const double* q, const double* r, const double* s, const double* t, double* filter
+) {
+    double a11 = p[0] - q[0];
+    double a12 = p[1] - q[1];
+    double a13 = p[2] - q[2];
+    double a21 = s[0] - r[0];
+    double a22 = s[1] - r[1];
+    double a23 = s[2] - r[2];
+    double a31 = t[0] - r[0];
+    double a32 = t[1] - r[1];
+    double a33 = t[2] - r[2];
+    double tv1 = a22 * a33;
+    double tv2 = a23 * a32;
+    double a2233 = tv1 - tv2;
+    double tv3 = a21 * a33;
+    double tv4 = a23 * a31;
+    double a2133 = tv3 - tv4;
+    double tv5 = a21 * a32;
+    double tv6 = a22 * a31;
+    double a2132 = tv5 - tv6;
+    double tv7 = a11 * a2233;
+    double tv8 = a12 * a2133;
+    double tv9 = a13 * a2132;
+    double tt1 = tv7 - tv8;
+    filter[3] = tt1 + tv9;
+    double px_rx = p[0] - r[0];
+    double py_ry = p[1] - r[1];
+    double pz_rz = p[2] - r[2];
+    double tt2 = py_ry * a2133;
+    double tt3 = px_rx * a2233;
+    double tt4 = pz_rz * a2132;
+    double tt5 = tt3 + tt4;
+    double n = tt5 - tt2;
+    double ax = a11 * n;
+    double ay = a12 * n;
+    double az = a13 * n;
+    double dpx = filter[3] * p[0];
+    double dpy = filter[3] * p[1];
+    double dpz = filter[3] * p[2];
+    filter[0] = dpx - ax;
+    filter[1] = dpy - ay;
+    filter[2] = dpz - az;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(p[0])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(p[1])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(p[2])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a11)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a12)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a13)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a21)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a22)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a23)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a31)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a32)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(a33)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(px_rx)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(py_ry)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(pz_rz)) > filter[4]) filter[4] = _tmp_fabs;
+    double lambda_d_eps = filter[4];
+    lambda_d_eps *= lambda_d_eps;
+    lambda_d_eps *= filter[4];
+    lambda_d_eps *= 4.884981308350689e-15;
+
+    return ((filter[3] > lambda_d_eps || filter[3] < -lambda_d_eps));
+}
+
+bool implicitPoint3D_LPI::getFilteredLambda(double& mv) const {
+    if (needsFilteredLambda()) {
+        if (!lambda3d_LPI_filtered(ip.ptr(), iq.ptr(), ir.ptr(), is.ptr(), it.ptr(), ssfilter.data())) {
+            ssfilter[3] = 0.0;
+        }
+        if (ssfilter[3] < 0) {
+            ssfilter[0] = -ssfilter[0];
+            ssfilter[1] = -ssfilter[1];
+            ssfilter[2] = -ssfilter[2];
+            ssfilter[3] = -ssfilter[3];
+        }
+    }
+    if (mv < ssfilter[4]) mv = ssfilter[4];
+    return ssfilter[3] != 0.0;
+}
+
 inline bool lambda3d_LPI_interval(
     const IntervalNumber& px, const IntervalNumber& py, const IntervalNumber& pz, const IntervalNumber& qx,
     const IntervalNumber& qy, const IntervalNumber& qz, const IntervalNumber& rx, const IntervalNumber& ry,
@@ -2177,7 +2261,6 @@ inline void lambda3d_LPI_exact(
     lambda_z_len = fast_expansion_diff_zeroelim(dpz_len, dpz.data(), az_len, az.data(), lambda_z.data());
 }
 
-
 // Keeps lambda/d pairs as close to one as possible to avoid under/overflows
 inline void normalizeLambda3D(double* lx, int lxl, double* ly, int lyl, double* lz, int lzl, double* d, int dl) {
     double maxd = -std::numeric_limits<double>::max(), maxsd = 0.0, ad, aad;
@@ -2219,6 +2302,156 @@ void implicitPoint3D_LPI::getExactLambda(
         invert_expansion(dl, d.data());
     }
     normalizeLambda3D(lx.data(), lxl, ly.data(), lyl, lz.data(), lzl, d.data(), dl);
+}
+
+inline bool lambda3d_TPI_filtered(
+    const double* ov1, const double* ov2, const double* ov3, const double* ow1, const double* ow2, const double* ow3,
+    const double* ou1, const double* ou2, const double* ou3, double* filter
+) {
+    double v3x = ov3[0] - ov2[0];
+    double v3y = ov3[1] - ov2[1];
+    double v3z = ov3[2] - ov2[2];
+    double v2x = ov2[0] - ov1[0];
+    double v2y = ov2[1] - ov1[1];
+    double v2z = ov2[2] - ov1[2];
+    double w3x = ow3[0] - ow2[0];
+    double w3y = ow3[1] - ow2[1];
+    double w3z = ow3[2] - ow2[2];
+    double w2x = ow2[0] - ow1[0];
+    double w2y = ow2[1] - ow1[1];
+    double w2z = ow2[2] - ow1[2];
+    double u3x = ou3[0] - ou2[0];
+    double u3y = ou3[1] - ou2[1];
+    double u3z = ou3[2] - ou2[2];
+    double u2x = ou2[0] - ou1[0];
+    double u2y = ou2[1] - ou1[1];
+    double u2z = ou2[2] - ou1[2];
+    double nvx1 = v2y * v3z;
+    double nvx2 = v2z * v3y;
+    double nvx = nvx1 - nvx2;
+    double nvy1 = v3x * v2z;
+    double nvy2 = v3z * v2x;
+    double nvy = nvy1 - nvy2;
+    double nvz1 = v2x * v3y;
+    double nvz2 = v2y * v3x;
+    double nvz = nvz1 - nvz2;
+    double nwx1 = w2y * w3z;
+    double nwx2 = w2z * w3y;
+    double nwx = nwx1 - nwx2;
+    double nwy1 = w3x * w2z;
+    double nwy2 = w3z * w2x;
+    double nwy = nwy1 - nwy2;
+    double nwz1 = w2x * w3y;
+    double nwz2 = w2y * w3x;
+    double nwz = nwz1 - nwz2;
+    double nux1 = u2y * u3z;
+    double nux2 = u2z * u3y;
+    double nux = nux1 - nux2;
+    double nuy1 = u3x * u2z;
+    double nuy2 = u3z * u2x;
+    double nuy = nuy1 - nuy2;
+    double nuz1 = u2x * u3y;
+    double nuz2 = u2y * u3x;
+    double nuz = nuz1 - nuz2;
+    double nwyuz1 = nwy * nuz;
+    double nwyuz2 = nwz * nuy;
+    double nwyuz = nwyuz1 - nwyuz2;
+    double nwxuz1 = nwx * nuz;
+    double nwxuz2 = nwz * nux;
+    double nwxuz = nwxuz1 - nwxuz2;
+    double nwxuy1 = nwx * nuy;
+    double nwxuy2 = nwy * nux;
+    double nwxuy = nwxuy1 - nwxuy2;
+    double nvyuz1 = nvy * nuz;
+    double nvyuz2 = nvz * nuy;
+    double nvyuz = nvyuz1 - nvyuz2;
+    double nvxuz1 = nvx * nuz;
+    double nvxuz2 = nvz * nux;
+    double nvxuz = nvxuz1 - nvxuz2;
+    double nvxuy1 = nvx * nuy;
+    double nvxuy2 = nvy * nux;
+    double nvxuy = nvxuy1 - nvxuy2;
+    double nvywz1 = nvy * nwz;
+    double nvywz2 = nvz * nwy;
+    double nvywz = nvywz1 - nvywz2;
+    double nvxwz1 = nvx * nwz;
+    double nvxwz2 = nvz * nwx;
+    double nvxwz = nvxwz1 - nvxwz2;
+    double nvxwy1 = nvx * nwy;
+    double nvxwy2 = nvy * nwx;
+    double nvxwy = nvxwy1 - nvxwy2;
+    double p1a = nvx * ov1[0];
+    double p1b = nvy * ov1[1];
+    double p1c = nvz * ov1[2];
+    double p1ab = p1a + p1b;
+    double p1 = p1ab + p1c;
+    double p2a = nwx * ow1[0];
+    double p2b = nwy * ow1[1];
+    double p2c = nwz * ow1[2];
+    double p2ab = p2a + p2b;
+    double p2 = p2ab + p2c;
+    double p3a = nux * ou1[0];
+    double p3b = nuy * ou1[1];
+    double p3c = nuz * ou1[2];
+    double p3ab = p3a + p3b;
+    double p3 = p3ab + p3c;
+    double lxa = p1 * nwyuz;
+    double lxb = p3 * nvywz;
+    double lxc = p2 * nvyuz;
+    double lxab = lxa + lxb;
+    filter[0] = lxab - lxc;
+    double lya = p2 * nvxuz;
+    double lyb = p3 * nvxwz;
+    double lyc = p1 * nwxuz;
+    double lybc = lyc + lyb;
+    filter[1] = lya - lybc;
+    double lza = p3 * nvxwy;
+    double lzb = p1 * nwxuy;
+    double lzc = p2 * nvxuy;
+    double lzab = lza + lzb;
+    filter[2] = lzab - lzc;
+    double da = nvx * nwyuz;
+    double db = nvz * nwxuy;
+    double dc = nvy * nwxuz;
+    double dab = da + db;
+    filter[3] = dab - dc;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(ov1[0])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ov1[1])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ov1[2])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ow1[0])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ow1[1])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ow1[2])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ou1[0])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ou1[1])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(ou1[2])) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v3x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v3y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v3z)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2z)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w3x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w3y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w3z)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w2x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w2y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(w2z)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u3x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u3y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u3z)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u2x)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u2y)) > filter[4]) filter[4] = _tmp_fabs;
+    if ((_tmp_fabs = fabs(u2z)) > filter[4]) filter[4] = _tmp_fabs;
+    double lambda_d_eps = filter[4];
+    lambda_d_eps *= lambda_d_eps;
+    lambda_d_eps *= lambda_d_eps;
+    lambda_d_eps *= filter[4];
+    lambda_d_eps *= filter[4];
+    lambda_d_eps *= 8.704148513061234e-14;
+
+    return ((filter[3] > lambda_d_eps || filter[3] < -lambda_d_eps));
 }
 
 inline bool lambda3d_TPI_interval(
@@ -2560,6 +2793,28 @@ inline void lambda3d_TPI_exact(
     int dab_len = fast_expansion_sum_zeroelim(da_len, da.data(), db_len, db.data(), dab.data());
     lambda_d.resize(static_cast<uint32_t>(dab_len + dc_len));
     lambda_d_len = fast_expansion_diff_zeroelim(dab_len, dab.data(), dc_len, dc.data(), lambda_d.data());
+}
+
+bool implicitPoint3D_TPI::getFilteredLambda(double& mv) const {
+    if (needsFilteredLambda()) {
+        if (!lambda3d_TPI_filtered(
+                iv1.ptr(), iv2.ptr(), iv3.ptr(), iw1.ptr(), iw2.ptr(), iw3.ptr(), iu1.ptr(), iu2.ptr(), iu3.ptr(),
+                ssfilter.data()
+            )) {
+            ssfilter[3] = 0.0;
+        }
+
+        if (ssfilter[3] < 0) {
+            ssfilter[0] = -ssfilter[0];
+            ssfilter[1] = -ssfilter[1];
+            ssfilter[2] = -ssfilter[2];
+            ssfilter[3] = -ssfilter[3];
+        }
+    }
+    if (mv < ssfilter[4]) {
+        mv = ssfilter[4];
+    }
+    return ssfilter[3] != 0.0;
 }
 
 bool implicitPoint3D_TPI::getIntervalLambda() const {
