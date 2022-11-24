@@ -925,7 +925,6 @@ inline int orient3d_LTTE_exact(
 inline int orient3d_LTTE(
     const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
 ) {
-    
     int ret = orient3d_LTTE_interval(p1, p2, p3, p4);
     if (ret != 0) {
         return ret;
@@ -933,6 +932,141 @@ inline int orient3d_LTTE(
     return orient3d_LTTE_exact(p1, p2, p3, p4);
 }
 
+inline int orient3d_TTTE_interval(
+    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+) {
+    if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
+        return IPSign::ZERO;
+    }
+    IntervalNumber d1p4x(p1.dfilter[3] * p4[0]);
+    IntervalNumber d1p4y(p1.dfilter[3] * p4[1]);
+    IntervalNumber d1p4z(p1.dfilter[3] * p4[2]);
+    IntervalNumber d2p4x(p2.dfilter[3] * p4[0]);
+    IntervalNumber d2p4y(p2.dfilter[3] * p4[1]);
+    IntervalNumber d2p4z(p2.dfilter[3] * p4[2]);
+    IntervalNumber d3p4x(p3.dfilter[3] * p4[0]);
+    IntervalNumber d3p4y(p3.dfilter[3] * p4[1]);
+    IntervalNumber d3p4z(p3.dfilter[3] * p4[2]);
+    IntervalNumber p1p4x(p1.dfilter[0] - d1p4x);
+    IntervalNumber p1p4y(p1.dfilter[1] - d1p4y);
+    IntervalNumber p1p4z(p1.dfilter[2] - d1p4z);
+    IntervalNumber p2p4x(p2.dfilter[0] - d2p4x);
+    IntervalNumber p2p4y(p2.dfilter[1] - d2p4y);
+    IntervalNumber p2p4z(p2.dfilter[2] - d2p4z);
+    IntervalNumber p3p4x(p3.dfilter[0] - d3p4x);
+    IntervalNumber p3p4y(p3.dfilter[1] - d3p4y);
+    IntervalNumber p3p4z(p3.dfilter[2] - d3p4z);
+    IntervalNumber tmc_a(p1p4x * p2p4y);
+    IntervalNumber tmc_b(p1p4y * p2p4x);
+    IntervalNumber m01(tmc_a - tmc_b);
+    IntervalNumber tmi_a(p1p4x * p2p4z);
+    IntervalNumber tmi_b(p1p4z * p2p4x);
+    IntervalNumber m02(tmi_a - tmi_b);
+    IntervalNumber tma_a(p1p4y * p2p4z);
+    IntervalNumber tma_b(p1p4z * p2p4y);
+    IntervalNumber m12(tma_a - tma_b);
+    IntervalNumber mt1(m01 * p3p4z);
+    IntervalNumber mt2(m02 * p3p4y);
+    IntervalNumber mt3(m12 * p3p4x);
+    IntervalNumber mtt(mt2 - mt1);
+    IntervalNumber m012(mtt - mt3);
+    return m012.sign();
+}
+
+inline int orient3d_TTTE_exact(
+    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+) {
+    std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, d1, d2, d3;
+    int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, d1_len, d2_len, d3_len;
+    p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    p2.getExactLambda(l2x, l2x_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len);
+    p3.getExactLambda(l3x, l3x_len, l3y, l3y_len, l3z, l3z_len, d3, d3_len);
+    if (d1.data()[d1_len - 1] == 0.0 || d2.data()[d2_len - 1] == 0.0 || d3.data()[d3_len - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+
+    std::vector<double> d1p4x(static_cast<uint32_t>(d1_len << 1));
+    int d1p4x_len = scale_expansion_zeroelim(d1_len, d1.data(), p4[0], d1p4x.data());
+    std::vector<double> d1p4y(static_cast<uint32_t>(d1_len << 1));
+    int d1p4y_len = scale_expansion_zeroelim(d1_len, d1.data(), p4[1], d1p4y.data());
+    std::vector<double> d1p4z(static_cast<uint32_t>(d1_len << 1));
+    int d1p4z_len = scale_expansion_zeroelim(d1_len, d1.data(), p4[2], d1p4z.data());
+    std::vector<double> d2p4x(static_cast<uint32_t>(d2_len << 1));
+    int d2p4x_len = scale_expansion_zeroelim(d2_len, d2.data(), p4[0], d2p4x.data());
+    std::vector<double> d2p4y(static_cast<uint32_t>(d2_len << 1));
+    int d2p4y_len = scale_expansion_zeroelim(d2_len, d2.data(), p4[1], d2p4y.data());
+    std::vector<double> d2p4z(static_cast<uint32_t>(d2_len << 1));
+    int d2p4z_len = scale_expansion_zeroelim(d2_len, d2.data(), p4[2], d2p4z.data());
+    std::vector<double> d3p4x(static_cast<uint32_t>(d3_len << 1));
+    int d3p4x_len = scale_expansion_zeroelim(d3_len, d3.data(), p4[0], d3p4x.data());
+    std::vector<double> d3p4y(static_cast<uint32_t>(d3_len << 1));
+    int d3p4y_len = scale_expansion_zeroelim(d3_len, d3.data(), p4[1], d3p4y.data());
+    std::vector<double> d3p4z(static_cast<uint32_t>(d3_len << 1));
+    int d3p4z_len = scale_expansion_zeroelim(d3_len, d3.data(), p4[2], d3p4z.data());
+    std::vector<double> p1p4x(static_cast<uint32_t>(l1x_len + d1p4x_len));
+    int p1p4x_len = fast_expansion_diff_zeroelim(l1x_len, l1x.data(), d1p4x_len, d1p4x.data(), p1p4x.data());
+    std::vector<double> p1p4y(static_cast<uint32_t>(l1y_len + d1p4y_len));
+    int p1p4y_len = fast_expansion_diff_zeroelim(l1y_len, l1y.data(), d1p4y_len, d1p4y.data(), p1p4y.data());
+    std::vector<double> p1p4z(static_cast<uint32_t>(l1z_len + d1p4z_len));
+    int p1p4z_len = fast_expansion_diff_zeroelim(l1z_len, l1z.data(), d1p4z_len, d1p4z.data(), p1p4z.data());
+    std::vector<double> p2p4x(static_cast<uint32_t>(l2x_len + d2p4x_len));
+    int p2p4x_len = fast_expansion_diff_zeroelim(l2x_len, l2x.data(), d2p4x_len, d2p4x.data(), p2p4x.data());
+    std::vector<double> p2p4y(static_cast<uint32_t>(l2y_len + d2p4y_len));
+    int p2p4y_len = fast_expansion_diff_zeroelim(l2y_len, l2y.data(), d2p4y_len, d2p4y.data(), p2p4y.data());
+    std::vector<double> p2p4z(static_cast<uint32_t>(l2z_len + d2p4z_len));
+    int p2p4z_len = fast_expansion_diff_zeroelim(l2z_len, l2z.data(), d2p4z_len, d2p4z.data(), p2p4z.data());
+    std::vector<double> p3p4x(static_cast<uint32_t>(l3x_len + d3p4x_len));
+    int p3p4x_len = fast_expansion_diff_zeroelim(l3x_len, l3x.data(), d3p4x_len, d3p4x.data(), p3p4x.data());
+    std::vector<double> p3p4y(static_cast<uint32_t>(l3y_len + d3p4y_len));
+    int p3p4y_len = fast_expansion_diff_zeroelim(l3y_len, l3y.data(), d3p4y_len, d3p4y.data(), p3p4y.data());
+    std::vector<double> p3p4z(static_cast<uint32_t>(l3z_len + d3p4z_len));
+    int p3p4z_len = fast_expansion_diff_zeroelim(l3z_len, l3z.data(), d3p4z_len, d3p4z.data(), p3p4z.data());
+    std::vector<double> tmc_a(static_cast<uint32_t>((p1p4x_len * p2p4y_len) << 1));
+    int tmc_a_len = product_expansion_zeroelim(p1p4x_len, p1p4x.data(), p2p4y_len, p2p4y.data(), tmc_a.data());
+    std::vector<double> tmc_b(static_cast<uint32_t>((p1p4y_len * p2p4x_len) << 1));
+    int tmc_b_len = product_expansion_zeroelim(p1p4y_len, p1p4y.data(), p2p4x_len, p2p4x.data(), tmc_b.data());
+    std::vector<double> m01(static_cast<uint32_t>(tmc_a_len + tmc_b_len));
+    int m01_len = fast_expansion_diff_zeroelim(tmc_a_len, tmc_a.data(), tmc_b_len, tmc_b.data(), m01.data());
+    std::vector<double> tmi_a(static_cast<uint32_t>((p1p4x_len * p2p4z_len) << 1));
+    int tmi_a_len = product_expansion_zeroelim(p1p4x_len, p1p4x.data(), p2p4z_len, p2p4z.data(), tmi_a.data());
+    std::vector<double> tmi_b(static_cast<uint32_t>((p1p4z_len * p2p4x_len) << 1));
+    int tmi_b_len = product_expansion_zeroelim(p1p4z_len, p1p4z.data(), p2p4x_len, p2p4x.data(), tmi_b.data());
+    std::vector<double> m02(static_cast<uint32_t>(tmi_a_len + tmi_b_len));
+    int m02_len = fast_expansion_diff_zeroelim(tmi_a_len, tmi_a.data(), tmi_b_len, tmi_b.data(), m02.data());
+    std::vector<double> tma_a(static_cast<uint32_t>((p1p4y_len * p2p4z_len) << 1));
+    int tma_a_len = product_expansion_zeroelim(p1p4y_len, p1p4y.data(), p2p4z_len, p2p4z.data(), tma_a.data());
+    std::vector<double> tma_b(static_cast<uint32_t>((p1p4z_len * p2p4y_len) << 1));
+    int tma_b_len = product_expansion_zeroelim(p1p4z_len, p1p4z.data(), p2p4y_len, p2p4y.data(), tma_b.data());
+    std::vector<double> m12(static_cast<uint32_t>(tma_a_len + tma_b_len));
+    int m12_len = fast_expansion_diff_zeroelim(tma_a_len, tma_a.data(), tma_b_len, tma_b.data(), m12.data());
+    std::vector<double> mt1(static_cast<uint32_t>((m01_len * p3p4z_len) << 1));
+    int mt1_len = product_expansion_zeroelim(m01_len, m01.data(), p3p4z_len, p3p4z.data(), mt1.data());
+    std::vector<double> mt2(static_cast<uint32_t>((m02_len * p3p4y_len) << 1));
+    int mt2_len = product_expansion_zeroelim(m02_len, m02.data(), p3p4y_len, p3p4y.data(), mt2.data());
+    std::vector<double> mt3(static_cast<uint32_t>((m12_len * p3p4x_len) << 1));
+    int mt3_len = product_expansion_zeroelim(m12_len, m12.data(), p3p4x_len, p3p4x.data(), mt3.data());
+    std::vector<double> mtt(static_cast<uint32_t>(mt2_len + mt1_len));
+    int mtt_len = fast_expansion_diff_zeroelim(mt2_len, mt2.data(), mt1_len, mt1.data(), mtt.data());
+    std::vector<double> m012(static_cast<uint32_t>(mtt_len + mt3_len));
+    int m012_len = fast_expansion_diff_zeroelim(mtt_len, mtt.data(), mt3_len, mt3.data(), m012.data());
+    if (m012.data()[m012_len - 1] > 0) {
+        return IPSign::POSITIVE;
+    } else if (m012.data()[m012_len - 1] < 0) {
+        return IPSign::NEGATIVE;
+    } else {
+        return IPSign::ZERO;
+    }
+}
+
+inline int orient3d_TTTE(
+    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+) {
+    int ret = orient3d_TTTE_interval(p1, p2, p3, p4);
+    if (ret != 0) {
+        return ret;
+    }
+    return orient3d_TTTE_exact(p1, p2, p3, p4);
+}
 
 inline int orient3d_LLLL_interval(
     const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
@@ -1806,6 +1940,8 @@ int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const g
         return orient3d_LTTE(c.toLPI(), b.toTPI(), d.toTPI(), a.toExplicit3D().ptr());
     case 25: // ETTL
         return orient3d_LTTE(d.toLPI(), c.toTPI(), b.toTPI(), a.toExplicit3D().ptr());
+    case 26: // ETTT
+        return orient3d_TTTE(b.toTPI(), d.toTPI(), c.toTPI(), a.toExplicit3D().ptr());
     case 31: // LELL
         return orient3d_LLLE(a.toLPI(), c.toLPI(), d.toLPI(), b.toExplicit3D().ptr());
     case 32: // LELT
@@ -1852,6 +1988,8 @@ int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const g
         return orient3d_LTTE(c.toLPI(), d.toTPI(), a.toTPI(), b.toExplicit3D().ptr());
     case 61: // TETL
         return orient3d_LTTE(c.toLPI(), d.toTPI(), a.toTPI(), b.toExplicit3D().ptr());
+    case 62: // TETT
+        return orient3d_TTTE(a.toTPI(), c.toTPI(), d.toTPI(), b.toExplicit3D().ptr());
     case 64: // TLEL
         return orient3d_LLTE(d.toLPI(), b.toLPI(), a.toTPI(), c.toExplicit3D().ptr());
     case 65: // TLET
@@ -1870,14 +2008,16 @@ int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const g
         return orient3d_LTTT(b.toLPI(), a.toTPI(), d.toTPI(), c.toTPI());
     case 73: // TTEL
         return orient3d_LTTE(d.toLPI(), b.toTPI(), a.toTPI(), c.toExplicit3D().ptr());
+    case 74: // TTET
+        return orient3d_TTTE(d.toTPI(), b.toTPI(), a.toTPI(), c.toExplicit3D().ptr());
     case 75: // TTLE
         return orient3d_LTTE(c.toLPI(), a.toTPI(), b.toTPI(), d.toExplicit3D().ptr());
     case 76: // TTLL
         return orient3d_LLTT(c.toLPI(), d.toLPI(), a.toTPI(), b.toTPI());
     case 77: // TTLT
         return orient3d_LTTT(c.toLPI(), d.toTPI(), a.toTPI(), b.toTPI());
-    // case 78: // TTTE
-    //     return orient3d_TTTE(a.toTPI(), b.toTPI(), c.toTPI(), d.toExplicit3D().ptr());
+    case 78: // TTTE
+        return orient3d_TTTE(a.toTPI(), b.toTPI(), c.toTPI(), d.toExplicit3D().ptr());
     case 79: // TTTL
         return orient3d_LTTT(d.toLPI(), c.toTPI(), b.toTPI(), a.toTPI());
     case 80: // TTTT
