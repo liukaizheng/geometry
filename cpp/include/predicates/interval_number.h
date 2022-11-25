@@ -11,6 +11,7 @@ class IntervalNumber {
     IntervalNumber() : inf(-std::numeric_limits<double>::quiet_NaN()), sup(std::numeric_limits<double>::quiet_NaN()) {}
     IntervalNumber(const double& a) : inf(-a), sup(a) {}
     IntervalNumber(const double& _inf, const double& _sup) : inf(_inf), sup(_sup) {}
+    IntervalNumber(const IntervalNumber& b): inf(b.inf), sup(b.sup) {}
     IntervalNumber& operator=(const IntervalNumber& b) {
         inf = b.inf;
         sup = b.sup;

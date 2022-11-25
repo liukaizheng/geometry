@@ -58,6 +58,15 @@ TEST_CASE("orient 3d") {
                     explicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
                     CHECK(genericPoint::orient3D(p1, p2, p3, p4) == 0);
                 }
+                SUBCASE("lpi D") {
+                    implicitPoint3D_LPI p4{
+                        {1.0, 1.0, -1.0},
+                        {1.0 / 3.0, 1.0 / 3.0, 1.1 / 3.0},
+                        {0.0, 0.0, 0.0},
+                        {1.0, 0.0, 0.0},
+                        {1.0, 1.0, 1.0}};
+                    CHECK(genericPoint::orient3D(p1, p2, p3, p4) == 0);
+                }
             }
         }
     }
