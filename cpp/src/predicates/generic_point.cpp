@@ -3002,7 +3002,7 @@ orient_xy_lee_filtered(const double* l1, const double d1, const double* p2, cons
     return IPSign::ZERO;
 }
 
-inline int orient_xy_lee_interval(
+inline int orient_xy_iee_interval(
     const IntervalNumber& l1x, const IntervalNumber& l1y, const IntervalNumber& d1, const IntervalNumber& p2x,
     const IntervalNumber& p2y, const IntervalNumber& p3x, const IntervalNumber& p3y
 ) {
@@ -3019,7 +3019,7 @@ inline int orient_xy_lee_interval(
     return det.sign();
 }
 
-inline int orient_xy_lee_exact(
+inline int orient_xy_iee_exact(
     const std::vector<double>& l1x, const int l1x_len, const std::vector<double>& l1y, const int l1y_len,
     const std::vector<double>& d1, const int d1_len, const double* p2, const double* p3
 ) {
@@ -3058,12 +3058,12 @@ inline int orient_xy_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b,
     int ret;
     if ((ret = orient_xy_lee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0) return ret;
     if (!a.getIntervalLambda()) return 0;
-    if ((ret = orient_xy_lee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0) return ret;
-        
+    if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0) return ret;
+
     std::vector<double> l1x, l1y, l1z, d1;
     int l1x_len, l1y_len, l1z_len, d1_len;
     a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
-    return orient_xy_lee_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, b.ptr(), c.ptr());
+    return orient_xy_iee_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, b.ptr(), c.ptr());
 }
 
 inline int orient_yz_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
@@ -3073,12 +3073,12 @@ inline int orient_yz_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b,
     if ((ret = orient_xy_lee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) != 0.0)
         return ret;
     if (!a.getIntervalLambda()) return 0;
-    if ((ret = orient_xy_lee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0) return ret;
-        
+    if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0) return ret;
+
     std::vector<double> l1x, l1y, l1z, d1;
     int l1x_len, l1y_len, l1z_len, d1_len;
     a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
-    return orient_xy_lee_exact(l1y, l1y_len, l1z, l1z_len, d1, d1_len, b.ptr() + 1, c.ptr() + 1);
+    return orient_xy_iee_exact(l1y, l1y_len, l1z, l1z_len, d1, d1_len, b.ptr() + 1, c.ptr() + 1);
 }
 
 inline int orient_zx_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
@@ -3090,12 +3090,88 @@ inline int orient_zx_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b,
     const double p3[2]{c.z, c.x};
     if ((ret = orient_xy_lee_filtered(l1, a.ssfilter[3], p2, p3, max_var)) != 0.0) return ret;
     if (!a.getIntervalLambda()) return 0;
-    if ((ret = orient_xy_lee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0) return ret;
-        
+    if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0) return ret;
+
     std::vector<double> l1x, l1y, l1z, d1;
     int l1x_len, l1y_len, l1z_len, d1_len;
     a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
-    return orient_xy_lee_exact(l1z, l1z_len, l1x, l1x_len, d1, d1_len, p2, p3);
+    return orient_xy_iee_exact(l1z, l1z_len, l1x, l1x_len, d1, d1_len, p2, p3);
+}
+
+inline int
+orient_xy_tee_filtered(const double* l1, const double d1, const double* p2, const double* p3, double max_var) {
+    double t1x = p2[1] - p3[1];
+    double t1y = p3[0] - p2[0];
+    double e2 = l1[0] * t1x;
+    double e3 = l1[1] * t1y;
+    double e = e2 + e3;
+    double pr1 = p2[0] * p3[1];
+    double pr2 = p2[1] * p3[0];
+    double pr = pr1 - pr2;
+    double dpr = d1 * pr;
+    double det = dpr + e;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(p2[0])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(p2[1])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(p3[0])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(p3[1])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(t1x)) > max_var) max_var = _tmp_fabs;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= 9.061883188277186e-13;
+    if ((_tmp_fabs = fabs(t1y)) > max_var) max_var = _tmp_fabs;
+    if (det > epsilon) return IPSign::POSITIVE;
+    if (-det > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int orient_xy_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var)) return 0;
+    int ret;
+    if ((ret = orient_xy_tee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0) return ret;
+    if (!a.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0) return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1x_len, l1y_len, l1z_len, d1_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    return orient_xy_iee_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, b.ptr(), c.ptr());
+}
+
+inline int orient_yz_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var)) return 0;
+    int ret;
+    if ((ret = orient_xy_tee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) != 0.0)
+        return ret;
+    if (!a.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0) return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1x_len, l1y_len, l1z_len, d1_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    return orient_xy_iee_exact(l1y, l1y_len, l1z, l1z_len, d1, d1_len, b.ptr() + 1, c.ptr() + 1);
+}
+
+inline int orient_zx_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var)) return 0;
+    int ret;
+    const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
+    const double p2[2]{b.z, b.x};
+    const double p3[2]{c.z, c.x};
+    if ((ret = orient_xy_tee_filtered(l1, a.ssfilter[3], p2, p3, max_var)) != 0.0) return ret;
+    if (!a.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0) return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1x_len, l1y_len, l1z_len, d1_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    return orient_xy_iee_exact(l1z, l1z_len, l1x, l1x_len, d1, d1_len, p2, p3);
 }
 
 int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const genericPoint& c) {
@@ -3107,10 +3183,16 @@ int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const 
     }
     case 1: // EEL
         return orient_xy_lee(c.toLPI(), a.toExplicit3D(), b.toExplicit3D());
+    case 2: // EET
+        return orient_xy_tee(c.toTPI(), a.toExplicit3D(), b.toExplicit3D());
     case 3: // ELE
         return orient_xy_lee(b.toLPI(), c.toExplicit3D(), a.toExplicit3D());
+    case 6: // ETE
+        return orient_xy_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 9: // LEE
         return orient_xy_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
+    case 18: // TEE
+        return orient_xy_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
@@ -3125,10 +3207,16 @@ int genericPoint::orient_yz(const genericPoint& a, const genericPoint& b, const 
     }
     case 1: // EEL
         return orient_yz_lee(c.toLPI(), a.toExplicit3D(), b.toExplicit3D());
+    case 2: // EET
+        return orient_yz_tee(c.toTPI(), a.toExplicit3D(), b.toExplicit3D());
     case 3: // ELE
         return orient_yz_lee(b.toLPI(), c.toExplicit3D(), a.toExplicit3D());
+    case 6: // ETE
+        return orient_yz_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 9: // LEE
         return orient_yz_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
+    case 18: // TEE
+        return orient_yz_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
@@ -3149,10 +3237,16 @@ int genericPoint::orient_zx(const genericPoint& a, const genericPoint& b, const 
     }
     case 1: // EEL
         return orient_zx_lee(c.toLPI(), a.toExplicit3D(), b.toExplicit3D());
+    case 2: // EET
+        return orient_zx_tee(c.toTPI(), a.toExplicit3D(), b.toExplicit3D());
     case 3: // ELE
         return orient_zx_lee(b.toLPI(), c.toExplicit3D(), a.toExplicit3D());
+    case 6: // ETE
+        return orient_zx_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 9: // LEE
         return orient_zx_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
+    case 18: // TEE
+        return orient_zx_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
