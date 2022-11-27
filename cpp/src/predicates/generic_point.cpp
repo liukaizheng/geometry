@@ -3353,6 +3353,7 @@ inline int orient_xy_lte_filtered(
 
     double _tmp_fabs;
     if ((_tmp_fabs = fabs(op3[0])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(op3[1])) > max_var) max_var = _tmp_fabs;
     double epsilon = max_var;
     epsilon *= epsilon;
     epsilon *= epsilon;
@@ -3364,7 +3365,6 @@ inline int orient_xy_lte_filtered(
     epsilon *= max_var;
     epsilon *= max_var;
     epsilon *= 2.184958117212875e-10;
-    if ((_tmp_fabs = fabs(op3[1])) > max_var) max_var = _tmp_fabs;
 
     if (L > epsilon) return IPSign::POSITIVE;
     if (-L > epsilon) return IPSign::NEGATIVE;
@@ -3436,6 +3436,107 @@ inline int orient_zx_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     return orient_xy_iie_exact(l1z, l1z_len, l1x, l1x_len, d1, d1_len, l2z, l2z_len, l2x, l2x_len, d2, d2_len, p3);
 }
 
+inline int orient_xy_tte_filtered(
+    const double* l1, const double d1, const double* l2, const double d2, const double* op3, double max_var
+) {
+    double a = d1 * l2[0];
+    double b = d2 * l1[0];
+    double c = d1 * op3[1];
+    double e = d1 * l2[1];
+    double f = d2 * l1[1];
+    double g = d1 * op3[0];
+    double ab = a - b;
+    double cd = c - l1[1];
+    double ef = e - f;
+    double gh = g - l1[0];
+    double abcd = ab * cd;
+    double efgh = ef * gh;
+    double L = abcd - efgh;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(op3[0])) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(op3[1])) > max_var) max_var = _tmp_fabs;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= 3.307187945722514e-08;
+
+    if (L > epsilon) return IPSign::POSITIVE;
+    if (-L > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int orient_xy_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
+    int ret;
+    if ((ret = orient_xy_tte_filtered(
+             a.ssfilter.data(), a.ssfilter[3], b.ssfilter.data(), b.ssfilter[3], c.ptr(), max_var
+         )) != 0.0)
+        return ret;
+    if (!a.getIntervalLambda() || !b.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iie_interval(
+             a.dfilter[0], a.dfilter[1], a.dfilter[3], b.dfilter[0], b.dfilter[1], b.dfilter[3], c.x, c.y
+         )) != 0.0)
+        return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2;
+    int l1x_len, l1y_len, l1z_len, d1_len, l2x_len, l2y_len, l2z_len, d2_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    b.getExactLambda(l2x, l2x_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len);
+    return orient_xy_iie_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, l2x, l2x_len, l2y, l2y_len, d2, d2_len, c.ptr());
+}
+
+inline int orient_yz_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
+    int ret;
+    if ((ret = orient_xy_tte_filtered(
+             a.ssfilter.data() + 1, a.ssfilter[3], b.ssfilter.data() + 1, b.ssfilter[3], c.ptr() + 1, max_var
+         )) != 0.0)
+        return ret;
+    if (!a.getIntervalLambda() || !b.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iie_interval(
+             a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.x, c.y
+         )) != 0.0)
+        return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2;
+    int l1x_len, l1y_len, l1z_len, d1_len, l2x_len, l2y_len, l2z_len, d2_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    b.getExactLambda(l2x, l2x_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len);
+    return orient_xy_iie_exact(
+        l1y, l1y_len, l1z, l1z_len, d1, d1_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len, c.ptr() + 1
+    );
+}
+
+inline int orient_zx_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+    double max_var = 0.0;
+    if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
+    int ret;
+    const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
+    const double l2[2]{b.ssfilter[2], b.ssfilter[0]};
+    const double p3[2]{c.z, c.x};
+    if ((ret = orient_xy_tte_filtered(l1, a.ssfilter[3], l2, b.ssfilter[3], p3, max_var)) != 0.0) return ret;
+    if (!a.getIntervalLambda() || !b.getIntervalLambda()) return 0;
+    if ((ret = orient_xy_iie_interval(
+             a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.z, c.x
+         )) != 0.0)
+        return ret;
+
+    std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2;
+    int l1x_len, l1y_len, l1z_len, d1_len, l2x_len, l2y_len, l2z_len, d2_len;
+    a.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
+    b.getExactLambda(l2x, l2x_len, l2y, l2y_len, l2z, l2z_len, d2, d2_len);
+    return orient_xy_iie_exact(l1z, l1z_len, l1x, l1x_len, d1, d1_len, l2z, l2z_len, l2x, l2x_len, d2, d2_len, p3);
+}
+
 int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const genericPoint& c) {
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
@@ -3457,6 +3558,8 @@ int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const 
         return orient_xy_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 7: // ETL
         return -orient_xy_lte(c.toLPI(), b.toTPI(), a.toExplicit3D());
+    case 8: // ETT
+        return orient_xy_tte(b.toTPI(), c.toTPI(), a.toExplicit3D());
     case 9: // LEE
         return orient_xy_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
     case 10: // LEL
@@ -3471,8 +3574,12 @@ int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const 
         return orient_xy_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     case 19: // TEL
         return orient_xy_lte(c.toLPI(), a.toTPI(), b.toExplicit3D());
+    case 20: // TET
+        return orient_xy_tte(c.toTPI(), a.toTPI(), b.toExplicit3D());
     case 21: // TLE
         return -orient_xy_lte(b.toLPI(), a.toTPI(), c.toExplicit3D());
+    case 24: // TTE
+        return orient_xy_tte(a.toTPI(), b.toTPI(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
@@ -3499,6 +3606,8 @@ int genericPoint::orient_yz(const genericPoint& a, const genericPoint& b, const 
         return orient_yz_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 7: // ETL
         return -orient_yz_lte(c.toLPI(), b.toTPI(), a.toExplicit3D());
+    case 8: // ETT
+        return orient_yz_tte(b.toTPI(), c.toTPI(), a.toExplicit3D());
     case 9: // LEE
         return orient_yz_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
     case 10: // LEL
@@ -3513,8 +3622,12 @@ int genericPoint::orient_yz(const genericPoint& a, const genericPoint& b, const 
         return orient_yz_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     case 19: // TEL
         return orient_yz_lte(c.toLPI(), a.toTPI(), b.toExplicit3D());
+    case 20: // TET
+        return orient_yz_tte(c.toTPI(), a.toTPI(), b.toExplicit3D());
     case 21: // TLE
         return -orient_yz_lte(b.toLPI(), a.toTPI(), c.toExplicit3D());
+    case 24: // TTE
+        return orient_yz_tte(a.toTPI(), b.toTPI(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
@@ -3547,6 +3660,8 @@ int genericPoint::orient_zx(const genericPoint& a, const genericPoint& b, const 
         return orient_zx_tee(b.toTPI(), c.toExplicit3D(), a.toExplicit3D());
     case 7: // ETL
         return -orient_zx_lte(c.toLPI(), b.toTPI(), a.toExplicit3D());
+    case 8: // ETT
+        return orient_zx_tte(b.toTPI(), c.toTPI(), a.toExplicit3D());
     case 9: // LEE
         return orient_zx_lee(a.toLPI(), b.toExplicit3D(), c.toExplicit3D());
     case 10: // LEL
@@ -3561,8 +3676,12 @@ int genericPoint::orient_zx(const genericPoint& a, const genericPoint& b, const 
         return orient_zx_tee(a.toTPI(), b.toExplicit3D(), c.toExplicit3D());
     case 19: // TEL
         return orient_zx_lte(c.toLPI(), a.toTPI(), b.toExplicit3D());
+    case 20: // TET
+        return orient_zx_tte(c.toTPI(), a.toTPI(), b.toExplicit3D());
     case 21: // TLE
         return -orient_zx_lte(b.toLPI(), a.toTPI(), c.toExplicit3D());
+    case 24: // TTE
+        return orient_zx_tte(a.toTPI(), b.toTPI(), c.toExplicit3D());
     default:
         return IPSign::UNDEFINED;
     }
