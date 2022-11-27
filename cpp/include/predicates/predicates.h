@@ -13,7 +13,7 @@ int fast_expansion_diff_zeroelim(const int elen, const double* e, const int flen
 int scale_expansion_zeroelim(const int elen, const double* e, const double b, double* h);
 int product_expansion_zeroelim(const int elen, const double* e, const int flen, const double* f, double* h);
 
-double orient2d(double*, double*, double*);
+double orient2d(const double*, const double*, const double*);
 double incircle(double* p1, double* p2, double* p3, double* p4);
 
 double orient3d(const double* pa, const double* pb, const double* pc, const double* pd);

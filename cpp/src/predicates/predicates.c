@@ -1470,7 +1470,7 @@ REAL orient2dadapt(REAL *pa, REAL *pb, REAL *pc, REAL detsum)
   return(D[Dlength - 1]);
 }
 
-REAL orient2d(REAL *pa, REAL *pb, REAL *pc)
+REAL orient2d(const REAL *pa, const REAL *pb, const REAL *pc)
 {
   REAL detleft, detright, det;
   REAL detsum, errbound;

@@ -110,6 +110,9 @@ class genericPoint {
     const class implicitPoint3D_TPI& toTPI() const { return reinterpret_cast<const implicitPoint3D_TPI&>(*this); }
 
     static int orient3D(const genericPoint& a, const genericPoint& b, const genericPoint& c, const genericPoint& d);
+    static int orient_xy(const genericPoint& a, const genericPoint& b, const genericPoint& c);
+    static int orient_yz(const genericPoint& a, const genericPoint& b, const genericPoint& c);
+    static int orient_zx(const genericPoint& a, const genericPoint& b, const genericPoint& c);
 };
 
 class explicitPoint3D : public genericPoint {
