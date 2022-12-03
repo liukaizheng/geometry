@@ -4,6 +4,7 @@
 #include <iostream>
 #include <numeric>
 #include <triangle/triangle.h>
+#include <triangle/tetrahedron.h>
 #include <vector>
 #include <predicates/interval_number.h>
 #include <predicates/generic_point.h>
@@ -42,13 +43,9 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 
 int main() {
     exactinit();
-    IntervalNumber a(-500.0000000000001);
-    IntervalNumber b(1000.0);
-    IntervalNumber c(-2000.0);
-    IntervalNumber s(2.0);
-    IntervalNumber _d1(b + c);
-    IntervalNumber _d2(s * a);
-    IntervalNumber d((b + c) - s * a);
+    const uint32_t n_point = 10000;
+    auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>::Random(n_point, 3).eval();
+    Tetrahedrons::tetrahedralize(point_data.data(), n_point, 1e-6);
     return 0;
 }
 // int main() {
