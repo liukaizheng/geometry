@@ -1532,7 +1532,7 @@ REAL orient2d(const REAL *pa, const REAL *pb, const REAL *pc)
 /*                                                                           */
 /*****************************************************************************/
 
-REAL orient3dfast(REAL *pa, REAL *pb, REAL *pc, REAL *pd)
+REAL orient3dfast(const REAL *pa, const REAL *pb, const REAL *pc, const REAL *pd)
 {
   REAL adx, bdx, cdx;
   REAL ady, bdy, cdy;

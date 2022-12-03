@@ -17,6 +17,7 @@ double orient2d(const double*, const double*, const double*);
 double incircle(double* p1, double* p2, double* p3, double* p4);
 
 double orient3d(const double* pa, const double* pb, const double* pc, const double* pd);
+double orient3dfast(const double* pa, const double* pb, const double* pc, const double* pd);
 }
 
 #define Quick_Two_Sum(a, b, x, y)                                                                                      \
