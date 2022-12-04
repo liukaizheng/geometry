@@ -8,6 +8,15 @@
 struct TriFace {
     uint32_t tet { std::numeric_limits<uint32_t>::max() };
     uint32_t ver { 11 }; // version
+    TriFace() {}
+    TriFace(uint32_t&& t, uint32_t && v): tet{t}, ver(v) {}
+    TriFace(const uint32_t& t, const uint32_t& v): tet(t), ver(v) {}
+    
+    TriFace& operator=(const TriFace& f) {
+        tet = f.tet;
+        ver = f.ver;
+        return *this;
+    }
 };
 
 struct Tet {

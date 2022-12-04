@@ -8,6 +8,7 @@
 #include <numeric>
 #include <random>
 #include <utility>
+#include <unordered_map>
 
 // "Compact Hilbert Indices", Technical Report CS-2006-07
 constexpr std::array<std::array<std::array<uint32_t, 8>, 3>, 8> gray_code() noexcept {
@@ -237,6 +238,8 @@ constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1
 constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
 constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
 
+constexpr std::array<uint32_t, 12>epivot{{4, 5, 2, 11, 4, 5, 2, 11, 4, 5, 2, 11}};
+
 constexpr std::array<std::array<uint32_t, 12>, 12> fsym_table() noexcept {
     std::array<std::array<uint32_t, 12>, 12> fsymtbl;
     for (uint32_t i = 0; i < 12; i++) {
@@ -339,11 +342,17 @@ inline void uninfect(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask &
 
 inline bool infected(const Tetrahedrons& tets, const uint32_t t) { return (tets.tets[t].mask & 1) != 0; }
 
+inline void marktest(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask |= 2; }
+
+inline void unmarktest(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask &= ~2; }
+
+inline bool marktested(const Tetrahedrons& tets, const uint32_t t) { return (tets.tets[t].mask & 2) != 0; }
+
 inline uint32_t org(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[orgpivot[f.ver]]; }
 
 inline uint32_t dest(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[destpivot[f.ver]]; }
 
-inline uint32_t apex(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[destpivot[f.ver]]; }
+inline uint32_t apex(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[apexpivot[f.ver]]; }
 
 inline uint32_t oppo(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[oppopivot[f.ver]]; }
 
@@ -351,6 +360,46 @@ inline double
 orient3d(const double* points, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
     return orient3d(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3]);
 }
+
+// Insphere test with symbolic perturbation
+inline double insphere_s(
+    const double* points, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd, const uint32_t pe
+) {
+    const double sign = insphere(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3], &points[pe * 3]);
+    if (sign != 0.0) {
+        return sign;
+    }
+
+    uint32_t pt[5] = {pa, pb, pc, pd, pe};
+
+    int swaps = 0; // Record the total number of swaps.
+    int n = 5;
+    int count = 0;
+    do {
+        count = 0;
+        n = n - 1;
+        for (int i = 0; i < n; i++) {
+            if (pt[i] > pt[i + 1]) {
+                std::swap(pt[i], pt[i + 1]);
+                count++;
+            }
+        }
+        swaps += count;
+    } while (count > 0); // Continue if some points are swapped.
+
+    double oriA = orient3d(points, pt[1], pt[2], pt[3], pt[4]);
+    if (oriA != 0.0) {
+        // Flip the sign if there are odd number of swaps.
+        if ((swaps % 2) != 0) oriA = -oriA;
+        return oriA;
+    }
+
+    double oriB = -orient3d(points, pt[0], pt[2], pt[3], pt[4]);
+    // Flip the sign if there are odd number of swaps.
+    if ((swaps % 2) != 0) oriB = -oriB;
+    return oriB;
+}
+
 
 inline void make_tet(
     Tetrahedrons& tets, TriFace& face, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd
@@ -537,7 +586,112 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
         // The point already exist. Do nothing and return.
         return false;
     }
-    return false;
+    uint32_t cavetid, neightid;
+    std::vector<TriFace> cave_bdry_list;
+    for (uint32_t i = 0; i < cave_oldtet_list.size(); i++) {
+        cavetid = cave_oldtet_list[i];
+        for (uint32_t ver = 0; ver < 4; ver++) {
+            neightid = tets.tets[cavetid].nei[ver].tet;
+            if (infected(tets, neightid)) continue;
+            bool enqflag = false;
+            if (!marktested(tets, neightid)) {
+                const auto& pts = tets.tets[neightid].data;
+                if (!tets.is_hull_tet(neightid)) {
+                    enqflag = insphere_s(tets.points, pts[0], pts[1], pts[2], pts[3], pid) < 0.0;
+                } else {
+                    const double ori = orient3d(tets.points, pts[0], pts[1], pts[2], pid);
+                    if (ori < 0) {
+                        enqflag = true;
+                    } else if (ori == 0.) {
+                        uint32_t neineitet = tets.tets[neightid].nei[3].tet;
+                        const auto& nei_pts = tets.tets[neineitet].data;
+                        enqflag = insphere_s(tets.points, nei_pts[0], nei_pts[1], nei_pts[2], nei_pts[3], pid) < 0.0;
+                    }
+                }
+                marktest(tets, neightid);
+            }
+
+            if (enqflag) {
+                infect(tets, neightid);
+                cave_oldtet_list.emplace_back(neightid);
+            } else {
+                // A boundary face.
+                cave_bdry_list.emplace_back(cavetid, ver);
+            }
+        }
+    }
+
+    constexpr uint32_t row_v08_tbl[12] = {8, 9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7};
+    constexpr uint32_t row_v11_tbl[12] = {8, 9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7};
+    constexpr uint32_t col_v01_tbl[12] = {1, 1, 1, 1, 5, 5, 5, 5, 9, 9, 9, 9};
+    constexpr uint32_t col_v02_tbl[12] = {2, 2, 2, 2, 6, 6, 6, 6, 10, 10, 10, 10};
+    constexpr uint32_t col_v08_tbl[12] = {8, 8, 8, 8, 0, 0, 0, 0, 4, 4, 4, 4};
+    constexpr uint32_t col_v11_tbl[12] = {11, 11, 11, 11, 3, 3, 3, 3, 7, 7, 7, 7};
+    const uint32_t f_out = static_cast<uint32_t>(cave_bdry_list.size());
+    const uint32_t v_out = (f_out + 4) >> 1;
+    static std::array<TriFace, 4096> bw_faces;
+    TriFace* tmp_bw_faces = nullptr;
+    uint32_t shiftbits = 0;
+    std::unique_ptr<TriFace[]> dyn_bw_faces;
+    if (v_out < 64) {
+        shiftbits = 6;
+        tmp_bw_faces = bw_faces.data();
+    } else if (v_out < 1024) {
+        // Dynamically allocate an array to store the adjacencies.
+        uint32_t tmp = v_out;
+        shiftbits = 1;
+        while ((tmp >>= 1)) shiftbits++;
+        const uint32_t arysize = 1 << shiftbits;
+        dyn_bw_faces = std::make_unique<TriFace[]>(arysize * arysize);
+        tmp_bw_faces = dyn_bw_faces.get();
+    }
+
+    if (v_out < 1024) {
+        // pid to local vertex id
+        std::unordered_map<uint32_t, uint32_t> pmap;
+        uint32_t local_vcount = 0;
+        for (uint32_t i = 0; i < f_out; i++) {
+            TriFace& oldtet = cave_bdry_list[i];
+            // Get the tet outside the cavity.
+            TriFace neightet = tets.tets[oldtet.tet].nei[oldtet.ver];
+            unmarktest(tets, neightet.tet);
+
+            if (tets.is_hull_tet(oldtet.tet)) {
+                // neightet.tet may be also a hull tet (=> oldtet is a hull edge).
+                neightet.ver = epivot[neightet.ver];
+            }
+
+            // Create a new tet in the cavity.
+            uint32_t v[3] = { dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
+            TriFace newtet;
+            make_tet(tets, newtet, v[1], v[0], pid, v[2]);
+            tets.tets[newtet.tet].nei[2] = neightet;
+            tets.tets[neightet.tet].nei[neightet.ver & 3] = TriFace(newtet.tet, col_v02_tbl[neightet.ver]);
+
+            uint32_t sidx[3];
+            // Fill the adjacency matrix, and count v_out.
+            for (uint32_t j = 0; j < 3; j++) {
+                const uint32_t tid = tets.p2t[v[j]];
+                if (tets.tets[tid].data[2] != pid) {
+                    pmap.emplace(v[j], local_vcount++);
+                    tets.p2t[v[j]] = newtet.tet;
+                }
+                sidx[j] = pmap[v[j]];
+            }
+
+            neightet.tet = newtet.tet;
+            // Avoid using lookup tables.
+            neightet.ver = 11;
+            tmp_bw_faces[(sidx[1] << shiftbits) | sidx[0]] = neightet;
+            neightet.ver = 1;
+            tmp_bw_faces[(sidx[2] << shiftbits) | sidx[1]] = neightet;
+            neightet.ver = 8;
+            tmp_bw_faces[(sidx[0] << shiftbits) | sidx[2]] = neightet;
+
+            oldtet = newtet;
+        }
+    }
+    return true;
 }
 
 Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n_points, const double epsilon) {
@@ -607,13 +761,19 @@ Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n
     }
     if (i > 3) {
         if (i == n_points) return {};
-        std::swap(sorted_pt_inds[3], i);
+        std::swap(sorted_pt_inds[3], sorted_pt_inds[i]);
     }
 
     // follow the right rule
     if (ori > 0.0) {
         std::swap(sorted_pt_inds[0], sorted_pt_inds[1]);
     }
+
+    initstaticfilter(
+        std::fmax(std::fabs(min_corner[0]), std::fabs(max_corner[0])),
+        std::fmax(std::fabs(min_corner[1]), std::fabs(max_corner[1])),
+        std::fmax(std::fabs(min_corner[2]), std::fabs(max_corner[2]))
+    );
 
     Tetrahedrons tets{points, n_points, {}, std::vector<uint32_t>(n_points + 1, INVALID)};
     TriFace search_tet =

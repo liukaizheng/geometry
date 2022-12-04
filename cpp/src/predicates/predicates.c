@@ -3956,7 +3956,7 @@ REAL insphereadapt(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe,
   return insphereexact(pa, pb, pc, pd, pe);
 }
 
-REAL insphere(REAL *pa, REAL *pb, REAL *pc, REAL *pd, REAL *pe)
+REAL insphere(const REAL *pa, const REAL *pb, const REAL *pc, const REAL *pd, const REAL *pe)
 {
   REAL aex, bex, cex, dex;
   REAL aey, bey, cey, dey;
