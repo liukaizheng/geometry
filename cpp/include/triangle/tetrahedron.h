@@ -17,6 +17,10 @@ struct TriFace {
         ver = f.ver;
         return *this;
     }
+    void set(const uint32_t t, const uint32_t v) {
+        tet = t;
+        ver = v;
+    }
 };
 
 struct Tet {

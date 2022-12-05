@@ -7,8 +7,8 @@
 #include <cmath>
 #include <numeric>
 #include <random>
-#include <utility>
 #include <unordered_map>
+#include <utility>
 
 // "Compact Hilbert Indices", Technical Report CS-2006-07
 constexpr std::array<std::array<std::array<uint32_t, 8>, 3>, 8> gray_code() noexcept {
@@ -238,7 +238,7 @@ constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1
 constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
 constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
 
-constexpr std::array<uint32_t, 12>epivot{{4, 5, 2, 11, 4, 5, 2, 11, 4, 5, 2, 11}};
+constexpr std::array<uint32_t, 12> epivot{{4, 5, 2, 11, 4, 5, 2, 11, 4, 5, 2, 11}};
 
 constexpr std::array<std::array<uint32_t, 12>, 12> fsym_table() noexcept {
     std::array<std::array<uint32_t, 12>, 12> fsymtbl;
@@ -646,10 +646,10 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
         tmp_bw_faces = dyn_bw_faces.get();
     }
 
+    uint32_t local_vcount = 0;
     if (v_out < 1024) {
         // pid to local vertex id
         std::unordered_map<uint32_t, uint32_t> pmap;
-        uint32_t local_vcount = 0;
         for (uint32_t i = 0; i < f_out; i++) {
             TriFace& oldtet = cave_bdry_list[i];
             // Get the tet outside the cavity.
@@ -662,7 +662,7 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
             }
 
             // Create a new tet in the cavity.
-            uint32_t v[3] = { dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
+            uint32_t v[3] = {dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
             TriFace newtet;
             make_tet(tets, newtet, v[1], v[0], pid, v[2]);
             tets.tets[newtet.tet].nei[2] = neightet;
@@ -680,7 +680,6 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
             }
 
             neightet.tet = newtet.tet;
-            // Avoid using lookup tables.
             neightet.ver = 11;
             tmp_bw_faces[(sidx[1] << shiftbits) | sidx[0]] = neightet;
             neightet.ver = 1;
@@ -690,6 +689,99 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
 
             oldtet = newtet;
         }
+
+        // randomly pick a new tet
+        tets.p2t[pid] = cave_bdry_list[f_out >> 1].tet;
+
+        for (uint32_t i = 0; i < f_out; i++) {
+            TriFace neightet = cave_bdry_list[i];
+            if (tets.tets[neightet.tet].nei[3].tet == INVALID) {
+                neightet.ver = 11;
+                const uint32_t j = pmap[org(tets, neightet)];
+                const uint32_t k = pmap[dest(tets, neightet)];
+                const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
+                tets.tets[neightet.tet].nei[3].set(neineitet.tet, row_v11_tbl[neineitet.ver]);
+                tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v11_tbl[neineitet.ver]);
+            }
+            if (tets.tets[neightet.tet].nei[1].tet == INVALID) {
+                neightet.ver = 1;
+                const uint32_t j = pmap[org(tets, neightet)];
+                const uint32_t k = pmap[dest(tets, neightet)];
+                const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
+                tets.tets[neightet.tet].nei[1].set(neineitet.tet, neineitet.ver);
+                tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v01_tbl[neineitet.ver]);
+            }
+            if (tets.tets[neightet.tet].nei[0].tet == INVALID) {
+                neightet.ver = 8;
+                const uint32_t j = pmap[org(tets, neightet)];
+                const uint32_t k = pmap[dest(tets, neightet)];
+                const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
+                tets.tets[neightet.tet].nei[0].set(neineitet.tet, row_v08_tbl[neineitet.ver]);
+                tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v08_tbl[neineitet.ver]);
+            }
+        }
+    } else {
+        // Fill a very large cavity with original neighboring searching method.
+        for (uint32_t i = 0; i < f_out; i++) {
+            TriFace& oldtet = cave_bdry_list[i];
+            TriFace neightet = tets.tets[oldtet.tet].nei[oldtet.ver];
+
+            unmarktest(tets, neightet.tet);
+            if (tets.is_hull_tet(oldtet.tet)) {
+                // neightet.tet may be also a hull tet (=> oldtet is a hull edge).
+                neightet.ver = epivot[neightet.ver];
+            }
+
+            uint32_t v[3] = {dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
+            TriFace newtet;
+            make_tet(tets, newtet, v[1], v[0], pid, v[2]);
+
+            tets.tets[newtet.tet].nei[2].set(neightet.tet, neightet.ver);
+            tets.tets[neightet.tet].nei[neightet.ver & 3].set(newtet.tet, col_v02_tbl[neightet.ver]);
+
+            // Fill the adjacency matrix, and count v_out.
+            for (uint32_t j = 0; j < 3; j++) {
+                const uint32_t tid = tets.p2t[v[j]];
+                if (tets.tets[tid].data[2] != pid) {
+                    local_vcount += 1;
+                    tets.p2t[v[j]] = newtet.tet;
+                }
+            }
+        }
+
+        // randomly pick a new tet
+        tets.p2t[pid] = cave_bdry_list[f_out >> 1].tet;
+
+        for (uint32_t i = 0; i < f_out; i++) {
+            TriFace oldtet = cave_bdry_list[i];
+
+            TriFace neightet, newtet;
+            fsym(tets, oldtet, neightet);
+            fsym(tets, neightet, newtet);
+            // Oldtet and newtet must be at the same directed edge.
+            // Connect the three other faces of this newtet.
+            for (uint32_t j = 0; j < 3; j++) {
+                esym(newtet, neightet); // Go to the face.
+                if (tets.tets[neightet.tet].nei[neightet.ver & 3].tet == INVALID) {
+                    // Find the adjacent face of this newtet.
+                    TriFace spintet = oldtet;
+                    while (true) {
+                        fnextself(tets, spintet);
+                        if (!infected(tets, spintet.tet)) break;
+                    }
+                    TriFace neineitet;
+                    fsym(tets, spintet, neineitet);
+                    esymself(neineitet);
+                    bond(tets, neightet, neineitet);
+                }
+                enextself(newtet);
+                enextself(oldtet);
+            }
+        }
+    }
+    
+    for (uint32_t i = 0; i < cave_oldtet_list.size(); i++) {
+        tets.tets[cave_oldtet_list[i]].data[3] = tets.n_points;
     }
     return true;
 }
@@ -783,5 +875,9 @@ Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n
             break;
         }
     }
+    auto it = std::remove_if (tets.tets.begin(), tets.tets.end(), [&tets](const Tet& t) {
+        return t.data[3] == tets.n_points;
+    });
+    tets.tets.erase(it, tets.tets.end());
     return tets;
 }

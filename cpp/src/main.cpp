@@ -43,7 +43,7 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
 
 int main() {
     exactinit();
-    // const uint32_t n_points = 10000;
+    // const uint32_t n_points = 10;
     // auto point_data = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>::Random(n_points, 3).eval();
     // Tetrahedrons::tetrahedralize(point_data.data(), n_points, 1e-6);
     const uint32_t n_points = 8;
