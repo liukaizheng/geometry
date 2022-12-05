@@ -666,7 +666,7 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
             TriFace newtet;
             make_tet(tets, newtet, v[1], v[0], pid, v[2]);
             tets.tets[newtet.tet].nei[2] = neightet;
-            tets.tets[neightet.tet].nei[neightet.ver & 3] = TriFace(newtet.tet, col_v02_tbl[neightet.ver]);
+            tets.tets[neightet.tet].nei[neightet.ver & 3].set(newtet.tet, col_v02_tbl[neightet.ver]);
 
             uint32_t sidx[3];
             // Fill the adjacency matrix, and count v_out.
@@ -691,7 +691,8 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
         }
 
         // randomly pick a new tet
-        tets.p2t[pid] = cave_bdry_list[f_out >> 1].tet;
+        searchtet = cave_bdry_list[f_out >> 1];
+        tets.p2t[pid] = searchtet.tet;
 
         for (uint32_t i = 0; i < f_out; i++) {
             TriFace neightet = cave_bdry_list[i];
@@ -750,7 +751,8 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
         }
 
         // randomly pick a new tet
-        tets.p2t[pid] = cave_bdry_list[f_out >> 1].tet;
+        searchtet = cave_bdry_list[f_out >> 1];
+        tets.p2t[pid] = searchtet.tet;
 
         for (uint32_t i = 0; i < f_out; i++) {
             TriFace oldtet = cave_bdry_list[i];
@@ -781,7 +783,7 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
     }
     
     for (uint32_t i = 0; i < cave_oldtet_list.size(); i++) {
-        tets.tets[cave_oldtet_list[i]].data[3] = tets.n_points;
+        tets.tets[cave_oldtet_list[i]].mask = static_cast<uint8_t>(-1);
     }
     return true;
 }
@@ -875,8 +877,8 @@ Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n
             break;
         }
     }
-    auto it = std::remove_if (tets.tets.begin(), tets.tets.end(), [&tets](const Tet& t) {
-        return t.data[3] == tets.n_points;
+    auto it = std::remove_if (tets.tets.begin(), tets.tets.end(), [](const Tet& t) {
+        return t.mask == static_cast<uint8_t>(-1);
     });
     tets.tets.erase(it, tets.tets.end());
     return tets;
