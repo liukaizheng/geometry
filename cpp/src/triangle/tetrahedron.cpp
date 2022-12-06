@@ -184,17 +184,6 @@ static void brio_multiscale_sort(
 
 constexpr uint32_t INVALID{std::numeric_limits<uint32_t>::max()};
 
-constexpr std::array<std::array<uint32_t, 12>, 12> bond_table() noexcept {
-    std::array<std::array<uint32_t, 12>, 12> bondtbl;
-    for (uint32_t i = 0; i < 12; i++) {
-        for (uint32_t j = 0; j < 12; j++) {
-            bondtbl[i][j] = (j & 3) + (((i & 12) + (j & 12)) % 12);
-        }
-    }
-    return bondtbl;
-}
-constexpr std::array<std::array<uint32_t, 12>, 12> bondtbl{bond_table()};
-
 constexpr std::array<uint32_t, 12> esymtbl{{9, 6, 11, 4, 3, 7, 1, 5, 10, 0, 8, 2}};
 
 constexpr std::array<uint32_t, 12> enext_table() noexcept {
@@ -270,16 +259,6 @@ constexpr std::array<std::array<uint32_t, 12>, 12> face_pivot2() noexcept {
     return facepivot2;
 }
 constexpr std::array<std::array<uint32_t, 12>, 12> facepivot2{face_pivot2()};
-
-inline void bond(TetMesh& tets, const TriFace& t1, const TriFace& t2) {
-    TriFace& f1 = tets.tets[t1.tet].nei[t1.ver & 3];
-    f1.tet = t2.tet;
-    f1.ver = bondtbl[t1.ver][t2.ver];
-
-    TriFace& f2 = tets.tets[t2.tet].nei[t2.ver & 3];
-    f2.tet = t1.tet;
-    f2.ver = bondtbl[t2.ver][t1.ver];
-}
 
 // next edge
 inline void enext(const TriFace& t1, TriFace& t2) {
@@ -421,34 +400,34 @@ initial_delaunay(TetMesh& tets, const uint32_t pa, const uint32_t pb, const uint
 
     // Connect hull tetrahedra to firsttet (at four faces of firsttet).
     TriFace worktet;
-    bond(tets, firsttet, tetopd);
+    tets.bond(firsttet, tetopd);
     esym(firsttet, worktet);
-    bond(tets, worktet, tetopc); // ab
+    tets.bond(worktet, tetopc); // ab
     enextesym(firsttet, worktet);
-    bond(tets, worktet, tetopa); // bc
+    tets.bond(worktet, tetopa); // bc
     eprevesym(firsttet, worktet);
-    bond(tets, worktet, tetopb); // ca
+    tets.bond(worktet, tetopb); // ca
 
     // Connect hull tetrahedra together (at six edges of firsttet).
     TriFace worktet1;
     esym(tetopc, worktet);
     esym(tetopd, worktet1);
-    bond(tets, worktet, worktet1); // ab
+    tets.bond(worktet, worktet1); // ab
     esym(tetopa, worktet);
     eprevesym(tetopd, worktet1);
-    bond(tets, worktet, worktet1); // bc
+    tets.bond(worktet, worktet1); // bc
     esym(tetopb, worktet);
     enextesym(tetopd, worktet1);
-    bond(tets, worktet, worktet1); // ca
+    tets.bond(worktet, worktet1); // ca
     eprevesym(tetopc, worktet);
     enextesym(tetopb, worktet1);
-    bond(tets, worktet, worktet1); // da
+    tets.bond(worktet, worktet1); // da
     eprevesym(tetopa, worktet);
     enextesym(tetopc, worktet1);
-    bond(tets, worktet, worktet1); // db
+    tets.bond(worktet, worktet1); // db
     eprevesym(tetopb, worktet);
     enextesym(tetopa, worktet1);
-    bond(tets, worktet, worktet1); // dc
+    tets.bond(worktet, worktet1); // dc
 
     tets.p2t[pa] = 0;
     tets.p2t[pb] = 0;
@@ -774,7 +753,7 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
                     TriFace neineitet;
                     fsym(tets, spintet, neineitet);
                     esymself(neineitet);
-                    bond(tets, neightet, neineitet);
+                    tets.bond(neightet, neineitet);
                 }
                 enextself(newtet);
                 enextself(oldtet);
