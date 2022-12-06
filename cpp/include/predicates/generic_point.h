@@ -94,12 +94,12 @@ class implicitPoint2D_SSI : public GenericPoint2D {
     inline bool needsIntervalLambda() const { return (dfilter[2].isNAN()); }
 };
 
-class genericPoint {
+class GenericPoint3D {
   protected:
     Point3DType type;
 
   public:
-    genericPoint(const Point3DType t) : type(t) {}
+    GenericPoint3D(const Point3DType t) : type(t) {}
     int get_type() const { return static_cast<int>(type); }
     bool isExplicit3D() const { return type == Point3DType::EXPLICIT3D; }
     bool isLPI() const { return type == Point3DType::LPI; }
@@ -109,23 +109,23 @@ class genericPoint {
     const class implicitPoint3D_LPI& toLPI() const { return reinterpret_cast<const implicitPoint3D_LPI&>(*this); }
     const class implicitPoint3D_TPI& toTPI() const { return reinterpret_cast<const implicitPoint3D_TPI&>(*this); }
 
-    static int orient3D(const genericPoint& a, const genericPoint& b, const genericPoint& c, const genericPoint& d);
-    static int orient_xy(const genericPoint& a, const genericPoint& b, const genericPoint& c);
-    static int orient_yz(const genericPoint& a, const genericPoint& b, const genericPoint& c);
-    static int orient_zx(const genericPoint& a, const genericPoint& b, const genericPoint& c);
+    static int orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
+    static int orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
+    static int orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
+    static int orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
 };
 
-class explicitPoint3D : public genericPoint {
+class explicitPoint3D : public GenericPoint3D {
   public:
     double x, y, z;
-    inline explicitPoint3D() : genericPoint(Point3DType::EXPLICIT3D), x{0.0}, y{0.0}, z{0.0} {}
+    inline explicitPoint3D() : GenericPoint3D(Point3DType::EXPLICIT3D), x{0.0}, y{0.0}, z{0.0} {}
     inline explicitPoint3D(double _x, double _y, double _z)
-        : genericPoint(Point3DType::EXPLICIT3D), x(_x), y(_y), z(_z) {}
-    inline explicitPoint3D(const explicitPoint3D& b) : genericPoint(Point3DType::EXPLICIT3D), x(b.x), y(b.y), z(b.z) {}
+        : GenericPoint3D(Point3DType::EXPLICIT3D), x(_x), y(_y), z(_z) {}
+    inline explicitPoint3D(const explicitPoint3D& b) : GenericPoint3D(Point3DType::EXPLICIT3D), x(b.x), y(b.y), z(b.z) {}
     const double* ptr() const { return &x; }
 };
 
-class implicitPoint3D_LPI : public genericPoint {
+class implicitPoint3D_LPI : public GenericPoint3D {
     const explicitPoint3D &ip, &iq;      // The line
     const explicitPoint3D &ir, &is, &it; // The plane
 
@@ -137,7 +137,7 @@ class implicitPoint3D_LPI : public genericPoint {
         const explicitPoint3D& _p, const explicitPoint3D& _q, const explicitPoint3D& _r, const explicitPoint3D& _s,
         const explicitPoint3D& _t
     )
-        : genericPoint(Point3DType::LPI), ip(_p), iq(_q), ir(_r), is(_s),
+        : GenericPoint3D(Point3DType::LPI), ip(_p), iq(_q), ir(_r), is(_s),
           it(_t), ssfilter{
                       {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                        std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0.0}} {}
@@ -154,7 +154,7 @@ class implicitPoint3D_LPI : public genericPoint {
     bool needsIntervalLambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
 };
 
-class implicitPoint3D_TPI : public genericPoint {
+class implicitPoint3D_TPI : public GenericPoint3D {
     const explicitPoint3D &iv1, &iv2, &iv3; // Plane 1
     const explicitPoint3D &iw1, &iw2, &iw3; // Plane 2
     const explicitPoint3D &iu1, &iu2, &iu3; // Plane 3
@@ -167,7 +167,7 @@ class implicitPoint3D_TPI : public genericPoint {
         const explicitPoint3D& _w2, const explicitPoint3D& _w3, const explicitPoint3D& _u1, const explicitPoint3D& _u2,
         const explicitPoint3D& _u3
     )
-        : genericPoint(Point3DType::TPI), iv1(_v1), iv2(_v2), iv3(_v3), iw1(_w1), iw2(_w2), iw3(_w3), iu1(_u1),
+        : GenericPoint3D(Point3DType::TPI), iv1(_v1), iv2(_v2), iv3(_v3), iw1(_w1), iw2(_w2), iw3(_w3), iu1(_u1),
           iu2(_u2),
           iu3(_u3), ssfilter{
                         {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),

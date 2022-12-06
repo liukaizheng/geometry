@@ -2799,7 +2799,7 @@ inline int orient3d_TTTT(
     return orient3d_TTTT_exact(p1, p2, p3, p4);
 }
 
-int genericPoint::orient3D(const genericPoint& a, const genericPoint& b, const genericPoint& c, const genericPoint& d) {
+int GenericPoint3D::orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d) {
     const int val = a.get_type() * 27 + b.get_type() * 9 + c.get_type() * 3 + d.get_type();
     switch (val) {
     case 0: {
@@ -4008,7 +4008,7 @@ inline int orient_zx_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI
     );
 }
 
-int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const genericPoint& c) {
+int GenericPoint3D::orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c) {
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
@@ -4072,7 +4072,7 @@ int genericPoint::orient_xy(const genericPoint& a, const genericPoint& b, const 
     }
 }
 
-int genericPoint::orient_yz(const genericPoint& a, const genericPoint& b, const genericPoint& c) {
+int GenericPoint3D::orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c) {
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
@@ -4136,7 +4136,7 @@ int genericPoint::orient_yz(const genericPoint& a, const genericPoint& b, const 
     }
 }
 
-int genericPoint::orient_zx(const genericPoint& a, const genericPoint& b, const genericPoint& c) {
+int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c) {
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
