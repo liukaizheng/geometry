@@ -184,95 +184,16 @@ static void brio_multiscale_sort(
 
 constexpr uint32_t INVALID{std::numeric_limits<uint32_t>::max()};
 
-
-constexpr std::array<uint32_t, 12> orgpivot{{3, 3, 1, 1, 2, 0, 0, 2, 1, 2, 3, 0}};
-constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1}};
-constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
-constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
-
 constexpr std::array<uint32_t, 12> epivot{{4, 5, 2, 11, 4, 5, 2, 11, 4, 5, 2, 11}};
 
-constexpr std::array<std::array<uint32_t, 12>, 12> fsym_table() noexcept {
-    std::array<std::array<uint32_t, 12>, 12> fsymtbl;
-    for (uint32_t i = 0; i < 12; i++) {
-        for (uint32_t j = 0; j < 12; j++) {
-            fsymtbl[i][j] = (j + 12 - (i & 12)) % 12;
-        }
-    }
-    return fsymtbl;
-}
-constexpr std::array<std::array<uint32_t, 12>, 12> fsymtbl{fsym_table()};
-
-constexpr std::array<uint32_t, 12> face_pivot1() noexcept {
-    std::array<uint32_t, 12> facepivot1;
-    for (uint32_t i = 0; i < 12; i++) {
-        facepivot1[i] = (TriFace::esymtbl[i] & 3);
-    }
-    return facepivot1;
-}
-constexpr std::array<uint32_t, 12> facepivot1{face_pivot1()};
-
-constexpr std::array<std::array<uint32_t, 12>, 12> face_pivot2() noexcept {
-    std::array<std::array<uint32_t, 12>, 12> facepivot2;
-    for (uint32_t i = 0; i < 12; i++) {
-        for (uint32_t j = 0; j < 12; j++) {
-            facepivot2[i][j] = fsymtbl[TriFace::esymtbl[i]][j];
-        }
-    }
-    return facepivot2;
-}
-constexpr std::array<std::array<uint32_t, 12>, 12> facepivot2{face_pivot2()};
-
-inline void fsym(const TetMesh& tets, const TriFace& t1, TriFace& t2) {
-    const TriFace& nf = tets.tets[t1.tet].nei[t1.ver & 3];
-    t2.tet = nf.tet;
-    t2.ver = fsymtbl[t1.ver][nf.ver];
-}
-
-inline void fsym_self(const TetMesh& tets, TriFace& t) {
-    const TriFace& nf = tets.tets[t.tet].nei[t.ver & 3];
-    t.tet = nf.tet;
-    t.ver = fsymtbl[t.ver][nf.ver];
-}
-
-inline void fnext_self(const TetMesh& tets, TriFace& t) {
-    const TriFace& nf = tets.tets[t.tet].nei[facepivot1[t.ver]];
-    t.tet = nf.tet;
-    t.ver = facepivot2[t.ver][nf.ver];
-}
-
-inline void infect(TetMesh& tets, const uint32_t t) { tets.tets[t].mask |= 1; }
-
-inline void uninfect(TetMesh& tets, const uint32_t t) { tets.tets[t].mask &= ~1; }
-
-inline bool infected(const TetMesh& tets, const uint32_t t) { return (tets.tets[t].mask & 1) != 0; }
-
-inline void mark_test(TetMesh& tets, const uint32_t t) { tets.tets[t].mask |= 2; }
-
-inline void unmark_test(TetMesh& tets, const uint32_t t) { tets.tets[t].mask &= ~2; }
-
-inline bool mark_tested(const TetMesh& tets, const uint32_t t) { return (tets.tets[t].mask & 2) != 0; }
-
-inline uint32_t org(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[orgpivot[f.ver]]; }
-
-inline uint32_t dest(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[destpivot[f.ver]]; }
-
-inline uint32_t apex(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[apexpivot[f.ver]]; }
-
-inline uint32_t oppo(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[oppopivot[f.ver]]; }
-
-inline double
-orient3d(const double* points, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
-    return orient3d(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3]);
-}
-
 // Insphere test with symbolic perturbation
-inline double insphere_s(
-    const double* points, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd, const uint32_t pe
+inline int insphere_s(
+    const TetMesh& tets, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd, const uint32_t pe
 ) {
+    const double* points = tets.points;
     const double sign = insphere(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3], &points[pe * 3]);
     if (sign != 0.0) {
-        return sign;
+        return (sign > 0.0) - (sign < 0.0);
     }
 
     uint32_t pt[5] = {pa, pb, pc, pd, pe};
@@ -292,23 +213,21 @@ inline double insphere_s(
         swaps += count;
     } while (count > 0); // Continue if some points are swapped.
 
-    double oriA = orient3d(points, pt[1], pt[2], pt[3], pt[4]);
+    int oriA = tets.orient3d(pt[1], pt[2], pt[3], pt[4]);
     if (oriA != 0.0) {
         // Flip the sign if there are odd number of swaps.
         if ((swaps % 2) != 0) oriA = -oriA;
         return oriA;
     }
 
-    double oriB = -orient3d(points, pt[0], pt[2], pt[3], pt[4]);
+    int oriB = -tets.orient3d(pt[0], pt[2], pt[3], pt[4]);
     // Flip the sign if there are odd number of swaps.
     if ((swaps % 2) != 0) oriB = -oriB;
     return oriB;
 }
 
-
-inline void make_tet(
-    TetMesh& tets, TriFace& face, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd
-) {
+inline void
+make_tet(TetMesh& tets, TriFace& face, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
     face.tet = static_cast<uint32_t>(tets.tets.size());
     face.ver = 11;
     tets.tets.emplace_back(std::array<uint32_t, 4>{{pa, pb, pc, pd}}, std::array<TriFace, 4>{{{}, {}, {}, {}}});
@@ -373,14 +292,13 @@ inline LocateResult locate_dt(const TetMesh& tets, const uint32_t pid, TriFace& 
     }
 
     for (searchtet.ver = 0; searchtet.ver < 4; searchtet.ver++) {
-        const double ori =
-            orient3d(tets.points, org(tets, searchtet), dest(tets, searchtet), apex(tets, searchtet), pid);
-        if (ori < 0.0) break;
+        const int ori = tets.orient3d(tets.org(searchtet), tets.dest(searchtet), tets.apex(searchtet), pid);
+        if (ori < 0) break;
     }
 
     LocateResult loc = LocateResult::OUTSIDE;
     while (true) {
-        uint32_t toppo = oppo(tets, searchtet);
+        uint32_t toppo = tets.oppo(searchtet);
 
         // Check if the vertex is we seek.
         if (toppo == pid) {
@@ -391,27 +309,27 @@ inline LocateResult locate_dt(const TetMesh& tets, const uint32_t pid, TriFace& 
             break;
         }
 
-        const double oriorg = orient3d(tets.points, dest(tets, searchtet), apex(tets, searchtet), toppo, pid);
-        if (oriorg < 0.0) {
+        const int oriorg = tets.orient3d(tets.dest(searchtet), tets.apex(searchtet), toppo, pid);
+        if (oriorg < 0) {
             searchtet.enext_esym_self();
         } else {
-            const double oridest = orient3d(tets.points, apex(tets, searchtet), org(tets, searchtet), toppo, pid);
+            const int oridest = tets.orient3d(tets.apex(searchtet), tets.org(searchtet), toppo, pid);
             if (oridest < 0) {
                 searchtet.eprev_esym_self();
             } else {
-                const double oriapex = orient3d(tets.points, org(tets, searchtet), dest(tets, searchtet), toppo, pid);
+                const int oriapex = tets.orient3d(tets.org(searchtet), tets.dest(searchtet), toppo, pid);
                 if (oriapex < 0) {
                     searchtet.esym_self();
                 } else {
                     // oriorg >= 0, oridest >= 0, oriapex >= 0 ==> found the point.
                     // The point we seek must be on the boundary of or inside this
                     //   tetrahedron. Check for boundary cases first.
-                    if (oriorg == 0.0) {
+                    if (oriorg == 0) {
                         // Go to the face opposite to origin.
                         searchtet.enext_esym_self();
-                        if (oridest == 0.0) {
+                        if (oridest == 0) {
                             searchtet.eprev_self(); // edge oppo->apex
-                            if (oriapex == 0.0) {
+                            if (oriapex == 0) {
                                 // oppo is duplicated with p.
                                 loc = LocateResult::ONVERTEX; // return ONVERTEX;
                                 break;
@@ -419,26 +337,26 @@ inline LocateResult locate_dt(const TetMesh& tets, const uint32_t pid, TriFace& 
                             loc = LocateResult::ONEDGE; // return ONEDGE;
                             break;
                         }
-                        if (oriapex == 0.0) {
-                            searchtet.enext_self();       // edge dest->oppo
+                        if (oriapex == 0) {
+                            searchtet.enext_self();     // edge dest->oppo
                             loc = LocateResult::ONEDGE; // return ONEDGE;
                             break;
                         }
                         loc = LocateResult::ONFACE; // return ONFACE;
                         break;
                     }
-                    if (oridest == 0.0) {
+                    if (oridest == 0) {
                         // Go to the face opposite to destination.
                         searchtet.eprev_esym_self();
-                        if (oriapex == 0.0) {
-                            searchtet.eprev_self();       // edge oppo->org
+                        if (oriapex == 0) {
+                            searchtet.eprev_self();     // edge oppo->org
                             loc = LocateResult::ONEDGE; // return ONEDGE;
                             break;
                         }
                         loc = LocateResult::ONFACE; // return ONFACE;
                         break;
                     }
-                    if (oriapex == 0.0) {
+                    if (oriapex == 0) {
                         // Go to the face opposite to apex
                         searchtet.esym_self();
                         loc = LocateResult::ONFACE; // return ONFACE;
@@ -468,23 +386,23 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
     const LocateResult loc = locate_dt(tets, pid, searchtet);
     std::vector<uint32_t> cave_oldtet_list;
     if (loc == LocateResult::OUTSIDE) {
-        infect(tets, searchtet.tet);
+        tets.infect(searchtet.tet);
         cave_oldtet_list.emplace_back(searchtet.tet);
     } else if (loc == LocateResult::INTETRAHEDRON) {
-        infect(tets, searchtet.tet);
+        tets.infect(searchtet.tet);
         cave_oldtet_list.emplace_back(searchtet.tet);
     } else if (loc == LocateResult::ONFACE) {
-        infect(tets, searchtet.tet);
+        tets.infect(searchtet.tet);
         cave_oldtet_list.emplace_back(searchtet.tet);
         const uint32_t nei_tet = tets.tets[searchtet.tet].nei[searchtet.ver & 3].tet;
-        infect(tets, nei_tet);
+        tets.infect(nei_tet);
         cave_oldtet_list.emplace_back(nei_tet);
     } else if (loc == LocateResult::ONEDGE) {
         TriFace spintet = searchtet;
         while (true) {
-            infect(tets, spintet.tet);
+            tets.infect(spintet.tet);
             cave_oldtet_list.emplace_back(spintet.tet);
-            fnext_self(tets, spintet);
+            tets.fnext_self(spintet);
             if (spintet.tet == searchtet.tet) break;
         }
     } else if (loc == LocateResult::ONVERTEX) {
@@ -497,27 +415,27 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
         cavetid = cave_oldtet_list[i];
         for (uint32_t ver = 0; ver < 4; ver++) {
             neightid = tets.tets[cavetid].nei[ver].tet;
-            if (infected(tets, neightid)) continue;
+            if (tets.infected(neightid)) continue;
             bool enqflag = false;
-            if (!mark_tested(tets, neightid)) {
+            if (!tets.mark_tested(neightid)) {
                 const auto& pts = tets.tets[neightid].data;
                 if (!tets.is_hull_tet(neightid)) {
-                    enqflag = insphere_s(tets.points, pts[0], pts[1], pts[2], pts[3], pid) < 0.0;
+                    enqflag = insphere_s(tets, pts[0], pts[1], pts[2], pts[3], pid) < 0;
                 } else {
-                    const double ori = orient3d(tets.points, pts[0], pts[1], pts[2], pid);
+                    const int ori = tets.orient3d(pts[0], pts[1], pts[2], pid);
                     if (ori < 0) {
                         enqflag = true;
-                    } else if (ori == 0.) {
+                    } else if (ori == 0) {
                         uint32_t neineitet = tets.tets[neightid].nei[3].tet;
                         const auto& nei_pts = tets.tets[neineitet].data;
-                        enqflag = insphere_s(tets.points, nei_pts[0], nei_pts[1], nei_pts[2], nei_pts[3], pid) < 0.0;
+                        enqflag = insphere_s(tets, nei_pts[0], nei_pts[1], nei_pts[2], nei_pts[3], pid) < 0;
                     }
                 }
-                mark_test(tets, neightid);
+                tets.mark_test(neightid);
             }
 
             if (enqflag) {
-                infect(tets, neightid);
+                tets.infect(neightid);
                 cave_oldtet_list.emplace_back(neightid);
             } else {
                 // A boundary face.
@@ -532,8 +450,10 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
     constexpr uint32_t col_v02_tbl[12] = {2, 2, 2, 2, 6, 6, 6, 6, 10, 10, 10, 10};
     constexpr uint32_t col_v08_tbl[12] = {8, 8, 8, 8, 0, 0, 0, 0, 4, 4, 4, 4};
     constexpr uint32_t col_v11_tbl[12] = {11, 11, 11, 11, 3, 3, 3, 3, 7, 7, 7, 7};
+        
     const uint32_t f_out = static_cast<uint32_t>(cave_bdry_list.size());
     const uint32_t v_out = (f_out + 4) >> 1;
+        
     static std::array<TriFace, 4096> bw_faces;
     TriFace* tmp_bw_faces = nullptr;
     uint32_t shiftbits = 0;
@@ -559,7 +479,7 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             TriFace& oldtet = cave_bdry_list[i];
             // Get the tet outside the cavity.
             TriFace neightet = tets.tets[oldtet.tet].nei[oldtet.ver];
-            unmark_test(tets, neightet.tet);
+            tets.unmark_test(neightet.tet);
 
             if (tets.is_hull_tet(oldtet.tet)) {
                 // neightet.tet may be also a hull tet (=> oldtet is a hull edge).
@@ -567,7 +487,7 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             }
 
             // Create a new tet in the cavity.
-            uint32_t v[3] = {dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
+            uint32_t v[3] = {tets.dest(neightet), tets.org(neightet), tets.apex(neightet)};
             TriFace newtet;
             make_tet(tets, newtet, v[1], v[0], pid, v[2]);
             tets.tets[newtet.tet].nei[2] = neightet;
@@ -603,24 +523,24 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             TriFace neightet = cave_bdry_list[i];
             if (tets.tets[neightet.tet].nei[3].tet == INVALID) {
                 neightet.ver = 11;
-                const uint32_t j = pmap[org(tets, neightet)];
-                const uint32_t k = pmap[dest(tets, neightet)];
+                const uint32_t j = pmap[tets.org(neightet)];
+                const uint32_t k = pmap[tets.dest(neightet)];
                 const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
                 tets.tets[neightet.tet].nei[3].set(neineitet.tet, row_v11_tbl[neineitet.ver]);
                 tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v11_tbl[neineitet.ver]);
             }
             if (tets.tets[neightet.tet].nei[1].tet == INVALID) {
                 neightet.ver = 1;
-                const uint32_t j = pmap[org(tets, neightet)];
-                const uint32_t k = pmap[dest(tets, neightet)];
+                const uint32_t j = pmap[tets.org(neightet)];
+                const uint32_t k = pmap[tets.dest(neightet)];
                 const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
                 tets.tets[neightet.tet].nei[1].set(neineitet.tet, neineitet.ver);
                 tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v01_tbl[neineitet.ver]);
             }
             if (tets.tets[neightet.tet].nei[0].tet == INVALID) {
                 neightet.ver = 8;
-                const uint32_t j = pmap[org(tets, neightet)];
-                const uint32_t k = pmap[dest(tets, neightet)];
+                const uint32_t j = pmap[tets.org(neightet)];
+                const uint32_t k = pmap[tets.dest(neightet)];
                 const TriFace& neineitet = tmp_bw_faces[(k << shiftbits) | j];
                 tets.tets[neightet.tet].nei[0].set(neineitet.tet, row_v08_tbl[neineitet.ver]);
                 tets.tets[neineitet.tet].nei[neineitet.ver & 3].set(neightet.tet, col_v08_tbl[neineitet.ver]);
@@ -632,13 +552,13 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             TriFace& oldtet = cave_bdry_list[i];
             TriFace neightet = tets.tets[oldtet.tet].nei[oldtet.ver];
 
-            unmark_test(tets, neightet.tet);
+            tets.unmark_test(neightet.tet);
             if (tets.is_hull_tet(oldtet.tet)) {
                 // neightet.tet may be also a hull tet (=> oldtet is a hull edge).
                 neightet.ver = epivot[neightet.ver];
             }
 
-            uint32_t v[3] = {dest(tets, neightet), org(tets, neightet), apex(tets, neightet)};
+            uint32_t v[3] = {tets.dest(neightet), tets.org(neightet), tets.apex(neightet)};
             TriFace newtet;
             make_tet(tets, newtet, v[1], v[0], pid, v[2]);
 
@@ -663,8 +583,8 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             TriFace oldtet = cave_bdry_list[i];
 
             TriFace neightet, newtet;
-            fsym(tets, oldtet, neightet);
-            fsym(tets, neightet, newtet);
+            tets.fsym(oldtet, neightet);
+            tets.fsym(neightet, newtet);
             // Oldtet and newtet must be at the same directed edge.
             // Connect the three other faces of this newtet.
             for (uint32_t j = 0; j < 3; j++) {
@@ -673,11 +593,11 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
                     // Find the adjacent face of this newtet.
                     TriFace spintet = oldtet;
                     while (true) {
-                        fnext_self(tets, spintet);
-                        if (!infected(tets, spintet.tet)) break;
+                        tets.fnext_self(spintet);
+                        if (!tets.infected(spintet.tet)) break;
                     }
                     TriFace neineitet;
-                    fsym(tets, spintet, neineitet);
+                    tets.fsym(spintet, neineitet);
                     neineitet.esym_self();
                     tets.bond(neightet, neineitet);
                 }
@@ -686,7 +606,7 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
             }
         }
     }
-    
+
     for (uint32_t i = 0; i < cave_oldtet_list.size(); i++) {
         tets.tets[cave_oldtet_list[i]].mask = static_cast<uint8_t>(-1);
     }
@@ -782,7 +702,7 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
             break;
         }
     }
-    auto it = std::remove_if (tets.tets.begin(), tets.tets.end(), [](const Tet& t) {
+    auto it = std::remove_if(tets.tets.begin(), tets.tets.end(), [](const Tet& t) {
         return t.mask == static_cast<uint8_t>(-1);
     });
     tets.tets.erase(it, tets.tets.end());

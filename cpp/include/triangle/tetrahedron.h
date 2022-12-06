@@ -1,5 +1,7 @@
 #pragma once
 
+#include <predicates/predicates.h>
+
 #include <array>
 #include <limits>
 #include <memory>
@@ -37,6 +39,45 @@ eprev_esym_table(const std::array<uint32_t, 12>& esymtbl, const std::array<uint3
         eprevesymtbl[i] = esymtbl[eprevtbl[i]];
     }
     return eprevesymtbl;
+}
+
+static constexpr std::array<std::array<uint32_t, 12>, 12> bond_table() noexcept {
+    std::array<std::array<uint32_t, 12>, 12> bondtbl;
+    for (uint32_t i = 0; i < 12; i++) {
+        for (uint32_t j = 0; j < 12; j++) {
+            bondtbl[i][j] = (j & 3) + (((i & 12) + (j & 12)) % 12);
+        }
+    }
+    return bondtbl;
+}
+
+static constexpr std::array<std::array<uint32_t, 12>, 12> fsym_table() noexcept {
+    std::array<std::array<uint32_t, 12>, 12> fsymtbl;
+    for (uint32_t i = 0; i < 12; i++) {
+        for (uint32_t j = 0; j < 12; j++) {
+            fsymtbl[i][j] = (j + 12 - (i & 12)) % 12;
+        }
+    }
+    return fsymtbl;
+}
+
+static constexpr std::array<uint32_t, 12> face_pivot1(const std::array<uint32_t, 12>& esymtbl) noexcept {
+    std::array<uint32_t, 12> facepivot1;
+    for (uint32_t i = 0; i < 12; i++) {
+        facepivot1[i] = (esymtbl[i] & 3);
+    }
+    return facepivot1;
+}
+
+static constexpr std::array<std::array<uint32_t, 12>, 12>
+face_pivot2(const std::array<std::array<uint32_t, 12>, 12>& fsymtbl, const std::array<uint32_t, 12>& esymtbl) noexcept {
+    std::array<std::array<uint32_t, 12>, 12> facepivot2;
+    for (uint32_t i = 0; i < 12; i++) {
+        for (uint32_t j = 0; j < 12; j++) {
+            facepivot2[i][j] = fsymtbl[esymtbl[i]][j];
+        }
+    }
+    return facepivot2;
 }
 
 struct TriFace {
@@ -89,7 +130,7 @@ struct TriFace {
         t2.ver = enextesymtbl[t1.ver];
     }
     void enext_esym_self() { ver = enextesymtbl[ver]; }
-        
+
     // prev sym edge
     static void eprev_esym(const TriFace& t1, TriFace& t2) {
         t2.tet = t1.tet;
@@ -105,18 +146,16 @@ struct Tet {
     Tet(std::array<uint32_t, 4>&& d, std::array<TriFace, 4>&& n) : data(std::move(d)), nei(std::move(n)), mask{0} {}
 };
 
-static constexpr std::array<std::array<uint32_t, 12>, 12> bond_table() noexcept {
-    std::array<std::array<uint32_t, 12>, 12> bondtbl;
-    for (uint32_t i = 0; i < 12; i++) {
-        for (uint32_t j = 0; j < 12; j++) {
-            bondtbl[i][j] = (j & 3) + (((i & 12) + (j & 12)) % 12);
-        }
-    }
-    return bondtbl;
-}
-
 struct TetMesh {
     static constexpr std::array<std::array<uint32_t, 12>, 12> bondtbl{bond_table()};
+    static constexpr std::array<std::array<uint32_t, 12>, 12> fsymtbl{fsym_table()};
+    static constexpr std::array<uint32_t, 12> facepivot1{face_pivot1(TriFace::esymtbl)};
+    static constexpr std::array<std::array<uint32_t, 12>, 12> facepivot2{face_pivot2(fsymtbl, TriFace::esymtbl)};
+    static constexpr std::array<uint32_t, 12> orgpivot{{3, 3, 1, 1, 2, 0, 0, 2, 1, 2, 3, 0}};
+    static constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1}};
+    static constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
+    static constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
+
     const double* points{nullptr};
     const uint32_t n_points{0};
     std::vector<Tet> tets;
@@ -133,5 +172,46 @@ struct TetMesh {
         TriFace& f2 = tets[t2.tet].nei[t2.ver & 3];
         f2.tet = t1.tet;
         f2.ver = bondtbl[t2.ver][t1.ver];
+    }
+    void fsym(const TriFace& t1, TriFace& t2) {
+        const TriFace& nf = tets[t1.tet].nei[t1.ver & 3];
+        t2.tet = nf.tet;
+        t2.ver = fsymtbl[t1.ver][nf.ver];
+    }
+
+    void fsym_self(TriFace& t) {
+        const TriFace& nf = tets[t.tet].nei[t.ver & 3];
+        t.tet = nf.tet;
+        t.ver = fsymtbl[t.ver][nf.ver];
+    }
+
+    void fnext_self(TriFace& t) {
+        const TriFace& nf = tets[t.tet].nei[facepivot1[t.ver]];
+        t.tet = nf.tet;
+        t.ver = facepivot2[t.ver][nf.ver];
+    }
+    void infect(const uint32_t t) { tets[t].mask |= 1; }
+
+    void uninfect(const uint32_t t) { tets[t].mask &= ~1; }
+
+    bool infected(const uint32_t t) const { return (tets[t].mask & 1) != 0; }
+
+    void mark_test(const uint32_t t) { tets[t].mask |= 2; }
+
+    void unmark_test(const uint32_t t) { tets[t].mask &= ~2; }
+
+    bool mark_tested(const uint32_t t) const { return (tets[t].mask & 2) != 0; }
+
+    uint32_t org(const TriFace& f) const { return tets[f.tet].data[orgpivot[f.ver]]; }
+
+    uint32_t dest(const TriFace& f) const { return tets[f.tet].data[destpivot[f.ver]]; }
+
+    uint32_t apex(const TriFace& f) const { return tets[f.tet].data[apexpivot[f.ver]]; }
+
+    uint32_t oppo(const TriFace& f) const { return tets[f.tet].data[oppopivot[f.ver]]; }
+
+    int orient3d(const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) const {
+        const double ret = ::orient3d(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3]);
+        return (ret > 0.0) - (ret < 0.0);
     }
 };
