@@ -271,7 +271,7 @@ constexpr std::array<std::array<uint32_t, 12>, 12> face_pivot2() noexcept {
 }
 constexpr std::array<std::array<uint32_t, 12>, 12> facepivot2{face_pivot2()};
 
-inline void bond(Tetrahedrons& tets, const TriFace& t1, const TriFace& t2) {
+inline void bond(TetMesh& tets, const TriFace& t1, const TriFace& t2) {
     TriFace& f1 = tets.tets[t1.tet].nei[t1.ver & 3];
     f1.tet = t2.tet;
     f1.ver = bondtbl[t1.ver][t2.ver];
@@ -318,43 +318,43 @@ inline void eprevesym(const TriFace& t1, TriFace& t2) {
 
 inline void eprevesymself(TriFace& t) { t.ver = eprevesymtbl[t.ver]; }
 
-inline void fsym(const Tetrahedrons& tets, const TriFace& t1, TriFace& t2) {
+inline void fsym(const TetMesh& tets, const TriFace& t1, TriFace& t2) {
     const TriFace& nf = tets.tets[t1.tet].nei[t1.ver & 3];
     t2.tet = nf.tet;
     t2.ver = fsymtbl[t1.ver][nf.ver];
 }
 
-inline void fsymself(const Tetrahedrons& tets, TriFace& t) {
+inline void fsymself(const TetMesh& tets, TriFace& t) {
     const TriFace& nf = tets.tets[t.tet].nei[t.ver & 3];
     t.tet = nf.tet;
     t.ver = fsymtbl[t.ver][nf.ver];
 }
 
-inline void fnextself(const Tetrahedrons& tets, TriFace& t) {
+inline void fnextself(const TetMesh& tets, TriFace& t) {
     const TriFace& nf = tets.tets[t.tet].nei[facepivot1[t.ver]];
     t.tet = nf.tet;
     t.ver = facepivot2[t.ver][nf.ver];
 }
 
-inline void infect(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask |= 1; }
+inline void infect(TetMesh& tets, const uint32_t t) { tets.tets[t].mask |= 1; }
 
-inline void uninfect(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask &= ~1; }
+inline void uninfect(TetMesh& tets, const uint32_t t) { tets.tets[t].mask &= ~1; }
 
-inline bool infected(const Tetrahedrons& tets, const uint32_t t) { return (tets.tets[t].mask & 1) != 0; }
+inline bool infected(const TetMesh& tets, const uint32_t t) { return (tets.tets[t].mask & 1) != 0; }
 
-inline void marktest(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask |= 2; }
+inline void marktest(TetMesh& tets, const uint32_t t) { tets.tets[t].mask |= 2; }
 
-inline void unmarktest(Tetrahedrons& tets, const uint32_t t) { tets.tets[t].mask &= ~2; }
+inline void unmarktest(TetMesh& tets, const uint32_t t) { tets.tets[t].mask &= ~2; }
 
-inline bool marktested(const Tetrahedrons& tets, const uint32_t t) { return (tets.tets[t].mask & 2) != 0; }
+inline bool marktested(const TetMesh& tets, const uint32_t t) { return (tets.tets[t].mask & 2) != 0; }
 
-inline uint32_t org(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[orgpivot[f.ver]]; }
+inline uint32_t org(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[orgpivot[f.ver]]; }
 
-inline uint32_t dest(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[destpivot[f.ver]]; }
+inline uint32_t dest(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[destpivot[f.ver]]; }
 
-inline uint32_t apex(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[apexpivot[f.ver]]; }
+inline uint32_t apex(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[apexpivot[f.ver]]; }
 
-inline uint32_t oppo(const Tetrahedrons& tets, const TriFace& f) { return tets.tets[f.tet].data[oppopivot[f.ver]]; }
+inline uint32_t oppo(const TetMesh& tets, const TriFace& f) { return tets.tets[f.tet].data[oppopivot[f.ver]]; }
 
 inline double
 orient3d(const double* points, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
@@ -402,7 +402,7 @@ inline double insphere_s(
 
 
 inline void make_tet(
-    Tetrahedrons& tets, TriFace& face, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd
+    TetMesh& tets, TriFace& face, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd
 ) {
     face.tet = static_cast<uint32_t>(tets.tets.size());
     face.ver = 11;
@@ -410,7 +410,7 @@ inline void make_tet(
 }
 
 inline TriFace
-initial_delaunay(Tetrahedrons& tets, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
+initial_delaunay(TetMesh& tets, const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) {
     TriFace firsttet, tetopa, tetopb, tetopc, tetopd;
 
     make_tet(tets, firsttet, pa, pb, pc, pd);
@@ -462,7 +462,7 @@ initial_delaunay(Tetrahedrons& tets, const uint32_t pa, const uint32_t pb, const
 
 enum class LocateResult { OUTSIDE, ONVERTEX, ONEDGE, ONFACE, INTETRAHEDRON };
 
-inline LocateResult locate_dt(const Tetrahedrons& tets, const uint32_t pid, TriFace& searchtet) {
+inline LocateResult locate_dt(const TetMesh& tets, const uint32_t pid, TriFace& searchtet) {
     if (tets.is_hull_tet(searchtet.tet)) {
         searchtet.tet = tets.tets[searchtet.tet].nei[3].tet;
     }
@@ -559,7 +559,7 @@ inline LocateResult locate_dt(const Tetrahedrons& tets, const uint32_t pid, TriF
 }
 
 // Insert a vertex using the Bowyer-Watson algorithm
-inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& searchtet) {
+inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searchtet) {
     const LocateResult loc = locate_dt(tets, pid, searchtet);
     std::vector<uint32_t> cave_oldtet_list;
     if (loc == LocateResult::OUTSIDE) {
@@ -788,7 +788,7 @@ inline bool insert_vertex_bw(Tetrahedrons& tets, const uint32_t pid, TriFace& se
     return true;
 }
 
-Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n_points, const double epsilon) {
+TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, const double epsilon) {
     Eigen::Map<const Eigen::Matrix<double, -1, 3, Eigen::RowMajor>> matrix(points, n_points, 3);
     const auto min_corner = matrix.colwise().minCoeff().eval();
     const auto max_corner = matrix.colwise().maxCoeff().eval();
@@ -869,7 +869,7 @@ Tetrahedrons Tetrahedrons::tetrahedralize(const double* points, const uint32_t n
         std::fmax(std::fabs(min_corner[2]), std::fabs(max_corner[2]))
     );
 
-    Tetrahedrons tets{points, n_points, {}, std::vector<uint32_t>(n_points + 1, INVALID)};
+    TetMesh tets{points, n_points, {}, std::vector<uint32_t>(n_points + 1, INVALID)};
     TriFace search_tet =
         initial_delaunay(tets, sorted_pt_inds[0], sorted_pt_inds[1], sorted_pt_inds[2], sorted_pt_inds[3]);
     for (i = 4; i < n_points; i++) {

@@ -45,7 +45,7 @@ int main() {
     exactinit();
     const uint32_t n_points = 10000;
     auto points = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>::Random(n_points, 3).eval();
-    const auto tets = Tetrahedrons::tetrahedralize(points.data(), n_points, 1e-6);
+    const auto tets = TetMesh::tetrahedralize(points.data(), n_points, 1e-6);
     // const uint32_t n_points = 8;
     // std::vector<double> points {
     //     0, 0, 0,
