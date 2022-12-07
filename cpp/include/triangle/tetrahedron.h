@@ -86,12 +86,14 @@ struct TriFace {
     static constexpr std::array<uint32_t, 12> esymtbl{{9, 6, 11, 4, 3, 7, 1, 5, 10, 0, 8, 2}};
     static constexpr std::array<uint32_t, 12> enextesymtbl{enext_esym_table(esymtbl, enexttbl)};
     static constexpr std::array<uint32_t, 12> eprevesymtbl{eprev_esym_table(esymtbl, eprevtbl)};
+    static constexpr uint32_t INVALID = std::numeric_limits<uint32_t>::max();
 
-    uint32_t tet{std::numeric_limits<uint32_t>::max()};
+    uint32_t tet{INVALID};
     uint32_t ver{11}; // version
     TriFace() {}
     TriFace(uint32_t&& t, uint32_t&& v) : tet{t}, ver(v) {}
     TriFace(const uint32_t& t, const uint32_t& v) : tet(t), ver(v) {}
+    TriFace(const TriFace& f): tet(f.tet), ver(f.ver) {}
 
     TriFace& operator=(const TriFace& f) {
         tet = f.tet;
@@ -143,7 +145,18 @@ struct Tet {
     std::array<uint32_t, 4> data; // tet vertices
     std::array<TriFace, 4> nei;   // neighbor
     uint8_t mask{0};
+
     Tet(std::array<uint32_t, 4>&& d, std::array<TriFace, 4>&& n) : data(std::move(d)), nei(std::move(n)), mask{0} {}
+
+    uint32_t index(const uint32_t vid) const {
+        uint32_t i = 0;
+        for (; i < 4; i++) {
+            if (data[i] == vid) {
+                return i;
+            }
+        }
+        return i;
+    }
 };
 
 struct TetMesh {
@@ -155,6 +168,8 @@ struct TetMesh {
     static constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1}};
     static constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
     static constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
+
+    static std::vector<uint32_t> temp_tets;
 
     const double* points{nullptr};
     const uint32_t n_points{0};
@@ -173,19 +188,19 @@ struct TetMesh {
         f2.tet = t1.tet;
         f2.ver = bondtbl[t2.ver][t1.ver];
     }
-    void fsym(const TriFace& t1, TriFace& t2) {
+    void fsym(const TriFace& t1, TriFace& t2) const {
         const TriFace& nf = tets[t1.tet].nei[t1.ver & 3];
         t2.tet = nf.tet;
         t2.ver = fsymtbl[t1.ver][nf.ver];
     }
 
-    void fsym_self(TriFace& t) {
+    void fsym_self(TriFace& t) const {
         const TriFace& nf = tets[t.tet].nei[t.ver & 3];
         t.tet = nf.tet;
         t.ver = fsymtbl[t.ver][nf.ver];
     }
 
-    void fnext_self(TriFace& t) {
+    void fnext_self(TriFace& t) const {
         const TriFace& nf = tets[t.tet].nei[facepivot1[t.ver]];
         t.tet = nf.tet;
         t.ver = facepivot2[t.ver][nf.ver];
@@ -209,7 +224,7 @@ struct TetMesh {
     uint32_t apex(const TriFace& f) const { return tets[f.tet].data[apexpivot[f.ver]]; }
 
     uint32_t oppo(const TriFace& f) const { return tets[f.tet].data[oppopivot[f.ver]]; }
-        
+
     const double* point(const uint32_t idx) const { return &points[idx * 3]; }
 
     int orient3d(const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) const {

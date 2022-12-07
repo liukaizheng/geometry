@@ -613,6 +613,8 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
     return true;
 }
 
+std::vector<uint32_t> TetMesh::temp_tets{};
+
 TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, const double epsilon) {
     Eigen::Map<const Eigen::Matrix<double, -1, 3, Eigen::RowMajor>> matrix(points, n_points, 3);
     const auto min_corner = matrix.colwise().minCoeff().eval();

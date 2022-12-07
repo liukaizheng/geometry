@@ -106,13 +106,81 @@ void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints) {
     }
 }
 
-inline bool triangle_at_tet(const TetMesh& mesh, const uint32_t* tri) {
+static constexpr std::array<uint32_t, 4> vpivot{{11, 8, 9, 10}};
+
+inline TriFace triangle_at_tet(TetMesh& mesh, const uint32_t* tri) {
+    uint32_t count = 0;
+
+    const auto push = [&count, &mesh](const uint32_t t) {
+        if (count < TetMesh::temp_tets.size()) {
+            TetMesh::temp_tets[count] = t;
+        } else {
+            TetMesh::temp_tets.emplace_back(t);
+        }
+        mesh.mark_test(t);
+        count += 1;
+    };
+    push(mesh.p2t[tri[0]]);
+
+    // find the second point in triangle
+    uint32_t vc = 3;
+    TriFace edge;
+    for (uint32_t i = 0; i < count; i++) {
+        const uint32_t tid = TetMesh::temp_tets[i];
+        const uint32_t vid = mesh.tets[tid].index(tri[0]);
+        TriFace cur(tid, vpivot[vid]);
+        bool stop = false;
+        for (uint32_t j = 0; j < 3; j++) {
+            const uint32_t dest = mesh.dest(cur);
+            if (dest == tri[1] || dest == tri[2]) {
+                edge = cur;
+                vc = dest == tri[1] ? 2 : 1;
+                stop = true;
+                break;
+            }
+            cur.eprev_esym_self();
+        }
+        if (stop) break;
+        for (uint32_t j = 0; j < 4; j++) {
+            const uint32_t nei = mesh.tets[tid].nei[j].tet;
+            if (mesh.is_hull_tet(nei) || mesh.mark_tested(nei)) {
+                continue;
+            }
+            push(nei);
+        }
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        mesh.unmark_test(TetMesh::temp_tets[i]);
+    }
+    
+    if (vc == 3) {
+        return {};
+    }
+
+    TriFace spin(edge);
+    do {
+        if (mesh.apex(spin) == tri[vc]) {
+            return spin;
+        }
+        mesh.fnext_self(spin);
+    } while (spin.tet != edge.tet);
+    return {};
 }
 
-void insert_constraints(const TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map) {
-    const uint32_t n_triangles = static_cast<uint32_t> (constraints.triangles.size() / 3);
-    std::vector<int> tet_marks(mesh.tets.size()); 
+void insert_constraints(
+    TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map
+) {
+    const uint32_t n_triangles = static_cast<uint32_t>(constraints.triangles.size() / 3);
+    std::vector<int> tet_marks(mesh.tets.size());
     for (uint32_t i = 0; i < n_triangles; i++) {
         const uint32_t* triangle = &constraints.triangles[i * 3];
+        const TriFace tet_face = triangle_at_tet(mesh, triangle);
+        if (tet_face.tet != TriFace::INVALID) {
+            tet_map[tet_face.ver & 3][tet_face.tet].emplace_back(i);
+            const TriFace& nei = mesh.tets[tet_face.tet].nei[tet_face.ver & 3];
+            tet_map[nei.ver & 3][nei.tet].emplace_back(i);
+            continue;
+        }
     }
 }

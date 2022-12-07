@@ -18,4 +18,4 @@ struct Constraints {
 };
 
 void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints);
-void insert_constraints(const TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map);
+void insert_constraints(TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map);
