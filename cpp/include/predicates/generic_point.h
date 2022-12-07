@@ -110,9 +110,12 @@ class GenericPoint3D {
     const class implicitPoint3D_TPI& toTPI() const { return reinterpret_cast<const implicitPoint3D_TPI&>(*this); }
 
     static int orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
+    
     static int orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
+    
+    static int max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3);
 };
 
 class explicitPoint3D : public GenericPoint3D {

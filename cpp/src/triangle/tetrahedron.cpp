@@ -450,10 +450,10 @@ inline bool insert_vertex_bw(TetMesh& tets, const uint32_t pid, TriFace& searcht
     constexpr uint32_t col_v02_tbl[12] = {2, 2, 2, 2, 6, 6, 6, 6, 10, 10, 10, 10};
     constexpr uint32_t col_v08_tbl[12] = {8, 8, 8, 8, 0, 0, 0, 0, 4, 4, 4, 4};
     constexpr uint32_t col_v11_tbl[12] = {11, 11, 11, 11, 3, 3, 3, 3, 7, 7, 7, 7};
-        
+
     const uint32_t f_out = static_cast<uint32_t>(cave_bdry_list.size());
     const uint32_t v_out = (f_out + 4) >> 1;
-        
+
     static std::array<TriFace, 4096> bw_faces;
     TriFace* tmp_bw_faces = nullptr;
     uint32_t shiftbits = 0;
@@ -631,9 +631,9 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
     uint32_t i = 1;
     using Vector3d = Eigen::Map<const Eigen::Vector3d>;
     {
-        Vector3d p0{point(points, sorted_pt_inds[0])};
+        Vector3d p0{::point(points, sorted_pt_inds[0])};
         while (i < n_points) {
-            Vector3d pi{point(points, sorted_pt_inds[i])};
+            Vector3d pi{::point(points, sorted_pt_inds[i])};
             if ((p0 - pi).norm() / bbox_size < epsilon) {
                 i += 1;
             } else {
@@ -648,10 +648,10 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
 
     i = 2;
     {
-        Vector3d p0{point(points, sorted_pt_inds[0])};
-        const auto v1 = (Vector3d{point(points, sorted_pt_inds[1])} - p0).eval();
+        Vector3d p0{::point(points, sorted_pt_inds[0])};
+        const auto v1 = (Vector3d{::point(points, sorted_pt_inds[1])} - p0).eval();
         while (i < n_points) {
-            Vector3d pi{point(points, sorted_pt_inds[i])};
+            Vector3d pi{::point(points, sorted_pt_inds[i])};
             const auto v2 = pi - p0;
             const auto n = v1.cross(v2);
             if (n.norm() / bbox_size2 < epsilon) {
@@ -669,8 +669,8 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
     double ori = 0.0;
     while (i < n_points) {
         ori = orient3dfast(
-            point(points, sorted_pt_inds[0]), point(points, sorted_pt_inds[1]), point(points, sorted_pt_inds[2]),
-            point(points, sorted_pt_inds[i])
+            ::point(points, sorted_pt_inds[0]), ::point(points, sorted_pt_inds[1]), ::point(points, sorted_pt_inds[2]),
+            ::point(points, sorted_pt_inds[i])
         );
         if (std::fabs(ori) / bbox_size3 < epsilon) {
             i += 1;
@@ -702,9 +702,33 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
             break;
         }
     }
+
+    uint32_t count = 0;
+    std::vector<uint32_t> tet_map(tets.tets.size());
+    for (i = 0; i < tets.tets.size(); i++) {
+        const auto& t = tets.tets[i];
+        if (t.mask != static_cast<uint8_t>(-1)) {
+            tet_map[i] = count++;
+        }
+    }
+
     auto it = std::remove_if(tets.tets.begin(), tets.tets.end(), [](const Tet& t) {
         return t.mask == static_cast<uint8_t>(-1);
     });
     tets.tets.erase(it, tets.tets.end());
+
+    // update neighbors
+    for (auto& tet : tets.tets) {
+        for (TriFace& nei : tet.nei) {
+            nei.tet = tet_map[nei.tet];
+        }
+    }
+    // make p2t[i] not be a ghost
+    for (i = 0; i < n_points; i++) {
+        const uint32_t t = tet_map[tets.p2t[i]];
+        if (tets.is_hull_tet(t)) {
+            tets.p2t[i] = tets.tets[t].nei[3].tet;
+        }
+    }
     return tets;
 }

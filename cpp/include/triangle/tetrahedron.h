@@ -209,6 +209,8 @@ struct TetMesh {
     uint32_t apex(const TriFace& f) const { return tets[f.tet].data[apexpivot[f.ver]]; }
 
     uint32_t oppo(const TriFace& f) const { return tets[f.tet].data[oppopivot[f.ver]]; }
+        
+    const double* point(const uint32_t idx) const { return &points[idx * 3]; }
 
     int orient3d(const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) const {
         const double ret = ::orient3d(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3]);

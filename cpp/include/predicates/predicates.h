@@ -81,4 +81,31 @@ inline void two_two_diff(const double* a, const double* b, double* x) {
     x[3] = _u3;
 }
 
- 
+inline void two_two_prod(const double* a, const double* b, double* h) {
+    double _ch, _cl, _m, _n;
+    double _c, _ah, _al, _bh, _bl, _bv, _i, _j, _k, _l, _0, _1, _2;
+    Split(a[0], _ah, _al);
+    Split(b[0], _bh, _bl);
+    Two_Product_2Presplit(a[0], _ah, _al, b[0], _bh, _bl, _i, h[0]);
+    Split(a[1], _ch, _cl);
+    Two_Product_2Presplit(a[1], _ch, _cl, b[0], _bh, _bl, _j, _0);
+    Two_Sum(_i, _0, _k, _1);
+    Quick_Two_Sum(_j, _k, _l, _2);
+    Split(b[1], _bh, _bl);
+    Two_Product_2Presplit(a[0], _ah, _al, b[1], _bh, _bl, _i, _0);
+    Two_Sum(_1, _0, _k, h[1]);
+    Two_Sum(_2, _k, _j, _1);
+    Two_Sum(_l, _j, _m, _2);
+    Two_Product_2Presplit(a[1], _ch, _cl, b[1], _bh, _bl, _j, _0);
+    Two_Sum(_i, _0, _n, _0);
+    Two_Sum(_1, _0, _i, h[2]);
+    Two_Sum(_2, _i, _k, _1);
+    Two_Sum(_m, _k, _l, _2);
+    Two_Sum(_j, _n, _k, _0);
+    Two_Sum(_1, _0, _j, h[3]);
+    Two_Sum(_2, _j, _i, _1);
+    Two_Sum(_l, _i, _m, _2);
+    Two_Sum(_1, _k, _i, h[4]);
+    Two_Sum(_2, _i, _k, h[5]);
+    Two_Sum(_m, _k, h[7], h[6]);
+}

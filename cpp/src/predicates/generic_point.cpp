@@ -2799,7 +2799,9 @@ inline int orient3d_TTTT(
     return orient3d_TTTT_exact(p1, p2, p3, p4);
 }
 
-int GenericPoint3D::orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d) {
+int GenericPoint3D::orient3D(
+    const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d
+) {
     const int val = a.get_type() * 27 + b.get_type() * 9 + c.get_type() * 3 + d.get_type();
     switch (val) {
     case 0: {
@@ -4204,6 +4206,93 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
     default:
         return IPSign::UNDEFINED;
     }
+}
+inline int max_component_at_triangle_normal_filtered(const double* ov1, const double* ov2, const double* ov3) {
+    double v3x = ov3[0] - ov2[0];
+    double v3y = ov3[1] - ov2[1];
+    double v3z = ov3[2] - ov2[2];
+    double v2x = ov2[0] - ov1[0];
+    double v2y = ov2[1] - ov1[1];
+    double v2z = ov2[2] - ov1[2];
+    double nvx1 = v2y * v3z;
+    double nvx2 = v2z * v3y;
+    double nvx = nvx1 - nvx2;
+    double nvy1 = v3x * v2z;
+    double nvy2 = v3z * v2x;
+    double nvy = nvy1 - nvy2;
+    double nvz1 = v2x * v3y;
+    double nvz2 = v2y * v3x;
+    double nvz = nvz1 - nvz2;
+
+    double _tmp_fabs, max_var = 0;
+    if ((_tmp_fabs = fabs(v3x)) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v3y)) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v3z)) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2x)) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2y)) > max_var) max_var = _tmp_fabs;
+    if ((_tmp_fabs = fabs(v2z)) > max_var) max_var = _tmp_fabs;
+    double epsilon = 8.88395e-016 * max_var * max_var;
+
+    double nvxc = fabs(nvx);
+    double nvyc = fabs(nvy);
+    double nvzc = fabs(nvz);
+    double nv = nvxc;
+    if (nvyc > nv) nv = nvyc;
+    if (nvzc > nv) nv = nvzc;
+
+    if (nv > epsilon) {
+        if (nv == nvx) return 0;
+        if (nv == nvy) return 1;
+        if (nv == nvz) return 2;
+    }
+    return -1;
+}
+inline int max_component_at_triangle_normal_exact(const double* ov1, const double* ov2, const double* ov3) {
+    double v3x[2];
+    two_diff(ov3[0], ov2[0], v3x);
+    double v3y[2];
+    two_diff(ov3[1], ov2[1], v3y);
+    double v3z[2];
+    two_diff(ov3[2], ov2[2], v3z);
+    double v2x[2];
+    two_diff(ov2[0], ov1[0], v2x);
+    double v2y[2];
+    two_diff(ov2[1], ov1[1], v2y);
+    double v2z[2];
+    two_diff(ov2[2], ov1[2], v2z);
+    double nvx1[8];
+    two_two_prod(v2y, v3z, nvx1);
+    double nvx2[8];
+    two_two_prod(v2z, v3y, nvx2);
+    double nvx[16];
+    int nvx_len = fast_expansion_diff_zeroelim(8, nvx1, 8, nvx2, nvx);
+    double nvy1[8];
+    two_two_prod(v3x, v2z, nvy1);
+    double nvy2[8];
+    two_two_prod(v3z, v2x, nvy2);
+    double nvy[16];
+    int nvy_len = fast_expansion_diff_zeroelim(8, nvy1, 8, nvy2, nvy);
+    double nvz1[8];
+    two_two_prod(v2x, v3y, nvz1);
+    double nvz2[8];
+    two_two_prod(v2y, v3x, nvz2);
+    double nvz[16];
+    int nvz_len = fast_expansion_diff_zeroelim(8, nvz1, 8, nvz2, nvz);
+
+    double nvxc = fabs(nvx[nvx_len - 1]);
+    double nvyc = fabs(nvy[nvy_len - 1]);
+    double nvzc = fabs(nvz[nvz_len - 1]);
+    double nv = nvxc;
+    if (nvyc > nv) nv = nvyc;
+    if (nvzc > nv) return 2;
+    if (nv == nvxc) return 0;
+    return 1;
+}
+
+int GenericPoint3D::max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3) {
+    int ret;
+    if ((ret = max_component_at_triangle_normal_filtered(v1, v2, v3)) >= 0) return ret;
+    return max_component_at_triangle_normal_exact(v1, v2, v3);
 }
 
 inline bool lambda3d_LPI_filtered(
