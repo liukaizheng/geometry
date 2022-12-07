@@ -105,3 +105,14 @@ void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints) {
         }
     }
 }
+
+inline bool triangle_at_tet(const TetMesh& mesh, const uint32_t* tri) {
+}
+
+void insert_constraints(const TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map) {
+    const uint32_t n_triangles = static_cast<uint32_t> (constraints.triangles.size() / 3);
+    std::vector<int> tet_marks(mesh.tets.size()); 
+    for (uint32_t i = 0; i < n_triangles; i++) {
+        const uint32_t* triangle = &constraints.triangles[i * 3];
+    }
+}
