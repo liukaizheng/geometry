@@ -106,8 +106,6 @@ void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints) {
     }
 }
 
-static constexpr std::array<uint32_t, 4> vpivot{{11, 8, 9, 10}};
-
 inline TriFace triangle_at_tet(TetMesh& mesh, const uint32_t* tri, std::vector<uint32_t>& temp_tets) {
     uint32_t count = 0;
 
@@ -128,7 +126,7 @@ inline TriFace triangle_at_tet(TetMesh& mesh, const uint32_t* tri, std::vector<u
     for (uint32_t i = 0; i < count; i++) {
         const uint32_t tid = temp_tets[i];
         const uint32_t vid = mesh.tets[tid].index(tri[0]);
-        TriFace cur(tid, vpivot[vid]);
+        TriFace cur(tid, TetMesh::vpivot[vid]);
         bool stop = false;
         for (uint32_t j = 0; j < 3; j++) {
             const uint32_t dest = mesh.dest(cur);
@@ -196,30 +194,48 @@ inline bool vert_inner_segment_cross_inner_triangle(
     );
 }
 
-inline void tet_vert_on_constraint_sides(
+inline bool vert_inner_segments_cross(
+    const TetMesh& mesh, const uint32_t u1, const uint32_t u2, const uint32_t v1, const uint32_t v2
+) {
+    if (u1 == v1 || u1 == v2 || u2 == v1 || u2 == v2) {
+        return false;
+    }
+    return GenericPoint3D::inner_segments_cross(mesh.point(u1), mesh.point(u2), mesh.point(v1), mesh.point(v2));
+}
+
+inline bool vert_point_in_inner_segment(const TetMesh& mesh, const uint32_t u, const uint32_t v1, const uint32_t v2) {
+    return u != v1 && u != v2 && GenericPoint3D::point_in_inner_segment(mesh.point(u), mesh.point(v1), mesh.point(v2));
+}
+
+inline uint32_t tet_vert_on_constraint_sides(
     TetMesh& mesh, const uint32_t va, const uint32_t vb, uint32_t* connect_verts, std::vector<uint32_t>& temp_tets,
     std::vector<uint32_t>& intersected_tets, std::vector<IType>& intersect_marks
 ) {
     const uint32_t num_inc_tets = mesh.incident(va, temp_tets);
-    const auto assign = [connect_verts](auto... vals) {
+    const auto fill = [connect_verts](auto... vals) {
         int idx = 0;
         for (const auto val : {vals...}) {
             connect_verts[idx++] = val;
         }
     };
+
+    // mark intersection
     for (uint32_t i = 0; i < num_inc_tets; i++) {
-        const uint32_t tid = temp_tets[i];
-        if (intersect_marks[tid] == IType::UNDEFINED) {
-            intersected_tets.emplace_back(tid);
-            intersect_marks[tid] = IType::INTERSECTION;
+        const uint32_t t = temp_tets[i];
+        if (intersect_marks[t] == IType::UNDEFINED) {
+            intersected_tets.emplace_back(t);
+            intersect_marks[t] = IType::INTERSECTION;
         }
     }
+
+    // find intersections
+    uint32_t tid = TriFace::INVALID;
     for (uint32_t i = 0; i < num_inc_tets; i++) {
-        const uint32_t tid = temp_tets[i];
+        tid = temp_tets[i];
         const Tet& tet = mesh.tets[tid];
         // segment is one of edges of tet
         if (tet.index(vb) != 4) {
-            assign(static_cast<uint32_t>(1), vb);
+            fill(static_cast<uint32_t>(1), vb);
             break;
         }
         // the vertices of opposite face aganist "va"
@@ -232,10 +248,63 @@ inline void tet_vert_on_constraint_sides(
 
         // segemnt and triangle properly intersect
         if (vert_inner_segment_cross_inner_triangle(mesh, va, vb, oppo_verts[0], oppo_verts[1], oppo_verts[2])) {
-            assign(static_cast<uint32_t>(3), oppo_verts[0], oppo_verts[1], oppo_verts[2]);
+            fill(static_cast<uint32_t>(3), oppo_verts[0], oppo_verts[1], oppo_verts[2]);
             break;
         }
+
+        // segment and segment properly intersect
+        for (uint32_t j = 0; j < 3; j++) {
+            const uint32_t ua = oppo_verts[j];
+            const uint32_t ub = oppo_verts[(j + 1) % 3];
+            if (vert_inner_segments_cross(mesh, va, vb, ua, ub)) {
+                fill(static_cast<uint32_t>(2), ua, ub);
+                break;
+            }
+        }
+
+        // tet vertex on segment
+        for (uint32_t j = 0; j < 3; j++) {
+            if (vert_point_in_inner_segment(mesh, oppo_verts[j], va, vb)) {
+                fill(static_cast<uint32_t>(1), oppo_verts[j]);
+                break;
+            }
+        }
     }
+    return tid;
+}
+
+inline bool verts_in_same_half_space(
+    const TetMesh& mesh, const uint32_t u1, const uint32_t u2, const uint32_t v1, const uint32_t v2, const uint32_t v3
+) {
+    return GenericPoint3D::sign_orient3d(mesh.point(v1), mesh.point(v2), mesh.point(v3), mesh.point(u1)) ==
+           GenericPoint3D::sign_orient3d(mesh.point(v1), mesh.point(v2), mesh.point(v3), mesh.point(u2));
+}
+
+inline void tet_edge_cross_constraint_side(
+    const TetMesh& mesh, const TriFace& edge, const uint32_t va, const uint32_t vb, uint32_t* connect_verts,
+    std::vector<uint32_t>& intersected_tets, std::vector<IType>& intersect_marks
+) {
+    TriFace spin{edge};
+    bool found = false;
+    do {
+        const uint32_t tid = edge.tet;
+        if (!mesh.is_hull_tet(tid)) {
+            if (intersect_marks[tid] == IType::UNDEFINED) {
+                intersected_tets.emplace_back(tid);
+                intersect_marks[tid] = IType::INTERSECTION;
+            }
+
+            if (!found) {
+                const uint32_t oppo_verts[2]{mesh.apex(spin), mesh.oppo(spin)};
+                if (oppo_verts[0] == vb || oppo_verts[1] == vb) {
+                    mesh.fnext_self(spin);
+                    found = true;
+                    continue;
+                }
+            }
+        }
+        mesh.fnext_self(spin);
+    } while (spin.tet != edge.tet);
 }
 
 inline void intersection_constraint_sides(
@@ -244,10 +313,33 @@ inline void intersection_constraint_sides(
 ) {
     std::array<uint32_t, 4> connect_verts; // [num, ...verts]
     for (uint32_t i = 0; i < 3; i++) {
-        tet_vert_on_constraint_sides(
-            mesh, triangle[(i + 1) % 3], triangle[(i + 2) % 3], connect_verts.data(), temp_tets, intersected_tets,
-            intersect_mark
+        const uint32_t va = triangle[(i + 1) % 3];
+        const uint32_t vb = triangle[(i + 2) % 3];
+        uint32_t tid = tet_vert_on_constraint_sides(
+            mesh, triangle[va], triangle[vb], connect_verts.data(), temp_tets, intersected_tets, intersect_mark
         );
+        while (connect_verts[1] != vb) {
+            switch (connect_verts[0]) {
+            case 1:
+                tid = tet_vert_on_constraint_sides(
+                    mesh, connect_verts[1], vb, connect_verts.data(), temp_tets, intersected_tets, intersect_mark
+                );
+                break;
+            case 2:
+                TriFace edge(tid, TetMesh::vpivot[mesh.tets[tid].index(connect_verts[1])]);
+                // the third must be succeed
+                for (uint32_t j = 0; j < 2; j++) {
+                    if (mesh.dest(edge) == connect_verts[2]) {
+                        break;
+                    }
+                    edge.eprev_esym_self();
+                }
+                tet_edge_cross_constraint_side(
+                    mesh, edge, va, vb, connect_verts.data(), intersected_tets, intersect_mark
+                );
+                break;
+            }
+        }
     }
 }
 

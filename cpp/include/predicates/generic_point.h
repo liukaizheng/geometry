@@ -28,6 +28,7 @@ class GenericPoint2D {
     const class explicitPoint2D& toExplicit2D() const { return reinterpret_cast<const explicitPoint2D&>(*this); }
     const class implicitPoint2D_SSI& toSSI() const { return reinterpret_cast<const implicitPoint2D_SSI&>(*this); }
 
+    static int sign_orient2d(const double* p, const double* q, const double* r);
     static int orient2D(const GenericPoint2D& a, const GenericPoint2D& b, const GenericPoint2D& c);
 };
 
@@ -118,9 +119,21 @@ class GenericPoint3D {
     static int max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3);
     
     static int sign_orient3d(const double* v1, const double* v2, const double* v3, const double* v4);
+    
     // segment and triangle properly intersects, i.e.
     // intersection occours in both segment and triangle interior.
     static bool inner_segment_cross_inner_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
+    
+    // return true when three points are not aligned
+    static bool mis_alignment(const double* p, const double* q, const double* r);
+    
+    // return true when points p and q lies both on the same side of the straight line passing througt v1 and v2.
+    static bool same_half_plane(const double* p, const double* q, const double* v1, const double* v2);
+    
+    // return true when segments properly intesect.
+    static bool inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2);
+    
+    static bool point_in_inner_segment(const double * p, const double * v1, const double * v2);
 };
 
 class explicitPoint3D : public GenericPoint3D {

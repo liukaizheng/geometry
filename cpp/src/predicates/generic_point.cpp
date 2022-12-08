@@ -367,6 +367,10 @@ int GenericPoint2D::orient2D(const GenericPoint2D& a, const GenericPoint2D& b, c
     }
     return IPSign::UNDEFINED;
 }
+int GenericPoint2D::sign_orient2d(const double* p, const double* q, const double* r) {
+    const double ret = orient2d(p, q, r);
+    return (ret > .0) - (ret < .0);
+}
 
 
 inline bool
@@ -4344,6 +4348,75 @@ bool GenericPoint3D::inner_segment_cross_inner_triangle(
 
     // Finally, we have a proper intersection.
     return true;
+}
+
+bool GenericPoint3D::mis_alignment(const double* p, const double* q, const double* r) {
+    // Projection on (x,y)-plane
+    if (orient2d(p, q, r) != .0) return true;
+
+    // Projection on (y,z)-plane
+    if (orient2d(p + 1, q + 1, r + 1) != .0) return true;
+
+    // Projection on (x,z)-plane
+    const double pxz[] = {p[0], p[2]};
+    const double qxz[] = {q[0], q[2]};
+    const double rxz[] = {r[0], r[2]};
+    return orient2d(pxz, qxz, rxz) != .0;
+}
+bool GenericPoint3D::same_half_plane(const double* p, const double* q, const double* v1, const double* v2) {
+
+    // Projection on (x,y)-plane
+    if (GenericPoint2D::sign_orient2d(p, v1, v2) != GenericPoint2D::sign_orient2d(q, v1, v2)) return false;
+
+    // Projection on (y,z)-plane
+    if (GenericPoint2D::sign_orient2d(p + 1, v1 + 1, v2 + 1) != GenericPoint2D::sign_orient2d(q + 1, v1 + 1, v2 + 1))
+        return 0;
+
+    // Projection on (x,z)-plane
+    const double pxz[] = {p[0], p[2]};
+    const double qxz[] = {q[0], q[2]};
+    const double v1xz[] = {v1[0], v1[2]};
+    const double v2xz[] = {v2[0], v2[2]};
+    return (GenericPoint2D::sign_orient2d(pxz, v1xz, v2xz) == GenericPoint2D::sign_orient2d(qxz, v1xz, v2xz));
+}
+bool GenericPoint3D::point_in_inner_segment(const double* p, const double* v1, const double* v2) {
+    return (
+        mis_alignment(p, v1, v2) == 0 &&
+        ((v1[0] < v2[0] && v1[0] < p[0] && p[0] < v2[0]) || (v1[0] > v2[0] && v1[0] > p[0] && p[0] > v2[0]) ||
+         (v1[1] < v2[1] && v1[1] < p[1] && p[1] < v2[1]) || (v1[1] > v2[1] && v1[1] > p[1] && p[1] > v2[1]) ||
+         (v1[2] < v2[2] && v1[2] < p[2] && p[2] < v2[2]) || (v1[2] > v2[2] && v1[2] > p[2] && p[2] > v2[2]))
+    );
+}
+
+bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2) {
+    // The 4 endpoints must be coplanar
+    if (orient3d(u1, u2, v1, v2) != 0.) return false;
+
+    // Endpoints of one segment cannot stay either on the same side of the other one.
+    if (same_half_plane(u1, u2, v1, v2) || same_half_plane(v1, v2, u1, u2)) return false;
+
+    // Each segment endpoint cannot be aligned with the other segment.
+    if (!mis_alignment(u1, v1, v2)) return false;
+    if (!mis_alignment(u2, v1, v2)) return false;
+    if (!mis_alignment(v1, u1, u2)) return false;
+    if (!mis_alignment(v2, u1, u2)) return false;
+
+    // If the segment projected on one coordinate plane cross -> segmant cross.
+    // Projection on (x,y)-plane
+    if (orient2d(u1, u2, v1) != 0.) return true;
+    if (orient2d(v1, v2, u2) != 0.) return true;
+    // Projection on (y,z)-plane
+    if (orient2d(u1 + 1, u2 + 1, v1 + 1) != 0.) return true;
+    if (orient2d(v1 + 1, v2 + 1, u2 + 1) != 0.) return true;
+    // Projection on (z,x)-plane
+    const double u1xz[] = {u1[0], u1[2]};
+    const double u2xz[] = {u2[0], u2[2]};
+    const double v1xz[] = {v1[0], v1[2]};
+    const double v2xz[] = {v2[0], v2[2]};
+    if (orient2d(u1xz, u2xz, v1xz) != 0.) return true;
+    if (orient2d(v1xz, v2xz, u2xz) != 0.) return true;
+
+    return false;
 }
 
 inline bool lambda3d_LPI_filtered(

@@ -84,6 +84,7 @@ struct TriFace {
     static constexpr std::array<uint32_t, 12> enexttbl{enext_table()};
     static constexpr std::array<uint32_t, 12> eprevtbl{eprev_table()};
     static constexpr std::array<uint32_t, 12> esymtbl{{9, 6, 11, 4, 3, 7, 1, 5, 10, 0, 8, 2}};
+    static constexpr std::array<uint32_t, 12> eoppotbl{{2, 3, 0, 1, 6, 8, 4, 10, 5, 11, 7, 9}};
     static constexpr std::array<uint32_t, 12> enextesymtbl{enext_esym_table(esymtbl, enexttbl)};
     static constexpr std::array<uint32_t, 12> eprevesymtbl{eprev_esym_table(esymtbl, eprevtbl)};
     static constexpr uint32_t INVALID = std::numeric_limits<uint32_t>::max();
@@ -168,6 +169,7 @@ struct TetMesh {
     static constexpr std::array<uint32_t, 12> destpivot{{2, 0, 0, 2, 1, 2, 3, 0, 3, 3, 1, 1}};
     static constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
     static constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
+    static constexpr std::array<uint32_t, 4> vpivot{{11, 8, 9, 10}};
 
     const double* points{nullptr};
     const uint32_t n_points{0};
@@ -225,6 +227,7 @@ struct TetMesh {
 
     const double* point(const uint32_t idx) const { return &points[idx * 3]; }
 
+    // tets incident to vertex
     uint32_t incident(const uint32_t vid, std::vector<uint32_t>& result) {
         uint32_t count = 0;
         const auto push = [&count, &result, this](const uint32_t t) {
@@ -249,6 +252,23 @@ struct TetMesh {
         for (uint32_t i = 0; i < count; i++) {
             unmark_test(result[i]);
         }
+        return count;
+    }
+    // tets incident to edge [va, vb]
+    uint32_t incident(const TriFace& edge, std::vector<uint32_t>& result) {
+        TriFace spin{edge};
+        uint32_t count = 0;
+        do {
+            if (!is_hull_tet(spin.tet)) {
+                if (count < result.size()) {
+                    result[count++] = spin.tet;
+                } else {
+                    count += 1;
+                    result.emplace_back(spin.tet);
+                }
+            }
+            fnext_self(spin);
+        } while (spin.tet != edge.tet);
         return count;
     }
 
