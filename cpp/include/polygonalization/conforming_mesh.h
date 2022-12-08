@@ -7,12 +7,12 @@
 struct Constraints {
     std::vector<uint32_t> triangles;
     const uint32_t n_triangles; // the number of origin triangles
-    
-    Constraints(const uint32_t* indices, const uint32_t n): n_triangles{n} {
+
+    Constraints(const uint32_t* indices, const uint32_t n) : n_triangles{n} {
         const uint32_t len = n_triangles * 3;
         triangles.resize(len);
         for (uint32_t i = 0; i < len; i++) {
-           triangles[i] = indices[i];
+            triangles[i] = indices[i];
         }
     }
 };

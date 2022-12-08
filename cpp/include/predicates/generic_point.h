@@ -116,6 +116,11 @@ class GenericPoint3D {
     static int orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     
     static int max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3);
+    
+    static int sign_orient3d(const double* v1, const double* v2, const double* v3, const double* v4);
+    // segment and triangle properly intersects, i.e.
+    // intersection occours in both segment and triangle interior.
+    static bool inner_segment_cross_inner_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
 };
 
 class explicitPoint3D : public GenericPoint3D {

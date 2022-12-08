@@ -4295,6 +4295,57 @@ int GenericPoint3D::max_component_at_triangle_normal(const double* v1, const dou
     return max_component_at_triangle_normal_exact(v1, v2, v3);
 }
 
+int GenericPoint3D::sign_orient3d(const double* v1, const double* v2, const double* v3, const double* v4) {
+    const double ret = orient3d(v1, v2, v3, v4);
+    return (ret > 0.0) - (ret < 0.0);
+}
+
+bool GenericPoint3D::inner_segment_cross_inner_triangle(
+    const double* u1, const double* u2, const double* v1, const double* v2, const double* v3
+) {
+    double bound;
+    bound = std::fmin(u1[0], u2[0]); // min(u1,u2) alogng x-axis
+    if (v1[0] <= bound && v2[0] <= bound && v3[0] <= bound) return false;
+    bound = std::fmax(u1[0], u2[0]); // max(u1,u2) alogng x-axis
+    if (v1[0] >= bound && v2[0] >= bound && v3[0] >= bound) return false;
+    bound = std::fmin(u1[1], u2[1]); // min(u1,u2) alogng y-axis
+    if (v1[1] <= bound && v2[1] <= bound && v3[1] <= bound) return false;
+    bound = std::fmax(u1[1], u2[1]); // max(u1,u2) alogng y-axis
+    if (v1[1] >= bound && v2[1] >= bound && v3[1] >= bound) return false;
+    bound = std::fmin(u1[2], u2[2]); // min(u1,u2) alogng z-axis
+    if (v1[2] <= bound && v2[2] <= bound && v3[2] <= bound) return false;
+    bound = std::fmax(u1[2], u2[2]); // max(u1,u2) alogng z-axis
+    if (v1[2] >= bound && v2[2] >= bound && v3[2] >= bound) return false;
+
+    const int orient_u1_tri = sign_orient3d(u1, v1, v2, v3);
+    const int orient_u2_tri = sign_orient3d(u2, v1, v2, v3);
+
+    // Check if triangle vertices and at least one of the segment endpoints are coplanar:
+    // in this case there is no proper intersection.
+    if (orient_u1_tri == 0 || orient_u2_tri == 0) return false;
+
+    // Endpoints of one segment cannot stay both in one of the same half-space defined by the triangle.
+    if (orient_u1_tri == orient_u2_tri) return false;
+
+    // Since now, endpoints are one abouve and one below the triangle-plane.
+
+    // Intersection between segment and triangle sides are not proper.
+    // Check also if segment intersect the triangle-plane outside the triangle.
+    const int orient_u_v1v2 = sign_orient3d(u1, u2, v1, v2);
+    const int orient_u_v2v3 = sign_orient3d(u1, u2, v2, v3);
+
+    if (orient_u_v1v2 == 0 || orient_u_v2v3 == 0) return false;
+    if (orient_u_v1v2 != orient_u_v2v3) return false;
+
+    const int orient_u_v3v1 = sign_orient3d(u1, u2, v3, v1);
+
+    if (orient_u_v3v1 == 0) return false;
+    if (orient_u_v3v1 != orient_u_v2v3) return false;
+
+    // Finally, we have a proper intersection.
+    return true;
+}
+
 inline bool lambda3d_LPI_filtered(
     const double* p, const double* q, const double* r, const double* s, const double* t, double* filter
 ) {

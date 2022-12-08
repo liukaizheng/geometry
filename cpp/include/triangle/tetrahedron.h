@@ -93,7 +93,7 @@ struct TriFace {
     TriFace() {}
     TriFace(uint32_t&& t, uint32_t&& v) : tet{t}, ver(v) {}
     TriFace(const uint32_t& t, const uint32_t& v) : tet(t), ver(v) {}
-    TriFace(const TriFace& f): tet(f.tet), ver(f.ver) {}
+    TriFace(const TriFace& f) : tet(f.tet), ver(f.ver) {}
 
     TriFace& operator=(const TriFace& f) {
         tet = f.tet;
@@ -169,8 +169,6 @@ struct TetMesh {
     static constexpr std::array<uint32_t, 12> apexpivot{{1, 2, 3, 0, 3, 3, 1, 1, 2, 0, 0, 2}};
     static constexpr std::array<uint32_t, 12> oppopivot{{0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3}};
 
-    static std::vector<uint32_t> temp_tets;
-
     const double* points{nullptr};
     const uint32_t n_points{0};
     std::vector<Tet> tets;
@@ -226,6 +224,33 @@ struct TetMesh {
     uint32_t oppo(const TriFace& f) const { return tets[f.tet].data[oppopivot[f.ver]]; }
 
     const double* point(const uint32_t idx) const { return &points[idx * 3]; }
+
+    uint32_t incident(const uint32_t vid, std::vector<uint32_t>& result) {
+        uint32_t count = 0;
+        const auto push = [&count, &result, this](const uint32_t t) {
+            if (count < result.size()) {
+                result[count] = t;
+            } else {
+                result.emplace_back(t);
+            }
+            mark_test(t);
+            count += 1;
+        };
+        push(p2t[vid]);
+        for (uint32_t i = 0; i < count; i++) {
+            const uint32_t t = result[i];
+            for (uint32_t j = 0; j < 4; j++) {
+                const uint32_t nei = tets[t].nei[j].tet;
+                if (!mark_tested(nei) && !is_hull_tet(nei)) {
+                    push(nei);
+                }
+            }
+        }
+        for (uint32_t i = 0; i < count; i++) {
+            unmark_test(result[i]);
+        }
+        return count;
+    }
 
     int orient3d(const uint32_t pa, const uint32_t pb, const uint32_t pc, const uint32_t pd) const {
         const double ret = ::orient3d(&points[pa * 3], &points[pb * 3], &points[pc * 3], &points[pd * 3]);
