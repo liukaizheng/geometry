@@ -128,12 +128,14 @@ class GenericPoint3D {
     static bool mis_alignment(const double* p, const double* q, const double* r);
     
     // return true when points p and q lies both on the same side of the straight line passing througt v1 and v2.
+    // Note. points and segment must be coplanar
     static bool same_half_plane(const double* p, const double* q, const double* v1, const double* v2);
     
     // return true when segments properly intesect.
     static bool inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2);
     
     static bool point_in_inner_segment(const double * p, const double * v1, const double * v2);
+    
 };
 
 class explicitPoint3D : public GenericPoint3D {

@@ -84,7 +84,6 @@ struct TriFace {
     static constexpr std::array<uint32_t, 12> enexttbl{enext_table()};
     static constexpr std::array<uint32_t, 12> eprevtbl{eprev_table()};
     static constexpr std::array<uint32_t, 12> esymtbl{{9, 6, 11, 4, 3, 7, 1, 5, 10, 0, 8, 2}};
-    static constexpr std::array<uint32_t, 12> eoppotbl{{2, 3, 0, 1, 6, 8, 4, 10, 5, 11, 7, 9}};
     static constexpr std::array<uint32_t, 12> enextesymtbl{enext_esym_table(esymtbl, enexttbl)};
     static constexpr std::array<uint32_t, 12> eprevesymtbl{eprev_esym_table(esymtbl, eprevtbl)};
     static constexpr uint32_t INVALID = std::numeric_limits<uint32_t>::max();
@@ -242,7 +241,11 @@ struct TetMesh {
         push(p2t[vid]);
         for (uint32_t i = 0; i < count; i++) {
             const uint32_t t = result[i];
+            const uint32_t ind = tets[t].index(vid);
             for (uint32_t j = 0; j < 4; j++) {
+                if (j == ind) {
+                    continue;
+                }
                 const uint32_t nei = tets[t].nei[j].tet;
                 if (!mark_tested(nei) && !is_hull_tet(nei)) {
                     push(nei);
