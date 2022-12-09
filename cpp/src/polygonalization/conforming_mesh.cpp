@@ -1,6 +1,7 @@
 #include <polygonalization/conforming_mesh.h>
 #include <predicates/generic_point.h>
 
+#include <algorithm>
 #include <array>
 #include <unordered_map>
 #include <vector>
@@ -194,6 +195,16 @@ inline bool vert_inner_segment_cross_inner_triangle(
     );
 }
 
+inline bool
+vert_inner_segment_cross_triangle(const TetMesh& mesh, const uint32_t u1, const uint32_t u2, const uint32_t* tri) {
+    if (u1 == tri[0] || u1 == tri[1] || u1 == tri[2] || u2 == tri[0] || u2 == tri[1] || u2 == tri[2]) {
+        return false;
+    }
+    return GenericPoint3D::inner_segment_cross_triangle(
+        mesh.point(u1), mesh.point(u2), mesh.point(tri[0]), mesh.point(tri[1]), mesh.point(tri[2])
+    );
+}
+
 inline bool vert_inner_segments_cross(
     const TetMesh& mesh, const uint32_t u1, const uint32_t u2, const uint32_t v1, const uint32_t v2
 ) {
@@ -205,6 +216,20 @@ inline bool vert_inner_segments_cross(
 
 inline bool vert_point_in_inner_segment(const TetMesh& mesh, const uint32_t u, const uint32_t v1, const uint32_t v2) {
     return u != v1 && u != v2 && GenericPoint3D::point_in_inner_segment(mesh.point(u), mesh.point(v1), mesh.point(v2));
+}
+
+inline bool vert_point_in_segment(const TetMesh& mesh, const uint32_t u, const uint32_t v1, const uint32_t v2) {
+    return u == v1 || u != v2 || GenericPoint3D::point_in_inner_segment(mesh.point(u), mesh.point(v1), mesh.point(v2));
+}
+
+inline bool vert_point_in_inner_triangle(const TetMesh& mesh, const uint32_t p, const uint32_t* tri) {
+    return p != tri[0] && p != tri[1] && p != tri[2] &&
+           GenericPoint3D::point_in_triangle(mesh.point(p), mesh.point(tri[0]), mesh.point(tri[1]), mesh.point(tri[2]));
+}
+
+inline bool vert_point_in_triangle(const TetMesh& mesh, const uint32_t p, const uint32_t* tri) {
+    return p == tri[0] || p == tri[1] || p == tri[2] ||
+           GenericPoint3D::point_in_triangle(mesh.point(p), mesh.point(tri[0]), mesh.point(tri[1]), mesh.point(tri[2]));
 }
 
 template <typename... T>
@@ -460,6 +485,149 @@ inline void intersection_constraint_sides(
             } break;
             }
         }
+    }
+}
+
+inline bool intersection_class_tetface(const TetMesh& mesh, const uint32_t* c, const uint32_t* t) {
+    if (vert_point_in_triangle(mesh, t[0], c) && vert_point_in_triangle(mesh, t[1], c) &&
+        vert_point_in_triangle(mesh, t[2], c)) {
+        return true;
+    }
+    if (vert_inner_segments_cross(mesh, t[0], t[1], c[0], c[1])) return true;
+    if (vert_inner_segments_cross(mesh, t[0], t[1], c[1], c[2])) return true;
+    if (vert_inner_segments_cross(mesh, t[0], t[1], c[2], c[0])) return true;
+
+    if (vert_inner_segments_cross(mesh, t[1], t[2], c[0], c[1])) return true;
+    if (vert_inner_segments_cross(mesh, t[1], t[2], c[1], c[2])) return true;
+    if (vert_inner_segments_cross(mesh, t[1], t[2], c[2], c[0])) return true;
+
+    if (vert_inner_segments_cross(mesh, t[2], t[0], c[0], c[1])) return true;
+    if (vert_inner_segments_cross(mesh, t[2], t[0], c[1], c[2])) return true;
+    if (vert_inner_segments_cross(mesh, t[2], t[0], c[2], c[0])) return true;
+    return false;
+}
+
+inline bool intersection_class_tetedge(
+    const TetMesh& mesh, const uint32_t* c, const uint32_t* coplanar_v, const uint32_t* unplanar_v
+) {
+    bool va_in = vert_point_in_inner_triangle(mesh, coplanar_v[0], c);
+    bool vb_in = vert_point_in_inner_triangle(mesh, coplanar_v[1], c);
+    // va and vb both in the interior of triangle, intersection must be improper.
+    if (va_in && vb_in) {
+        return true;
+    }
+    int va_on_edge = static_cast<int>(vert_point_in_segment(mesh, coplanar_v[0], c[1], c[2])) |
+                     (vert_point_in_segment(mesh, coplanar_v[0], c[2], c[0]) << 1) |
+                     (vert_point_in_segment(mesh, coplanar_v[0], c[0], c[1]) << 2);
+    int vb_on_edge = static_cast<int>(vert_point_in_segment(mesh, coplanar_v[1], c[1], c[2])) |
+                     (vert_point_in_segment(mesh, coplanar_v[1], c[2], c[0]) << 1) |
+                     (vert_point_in_segment(mesh, coplanar_v[2], c[0], c[1]) << 2);
+    va_in |= va_on_edge > 0;
+    vb_in |= vb_on_edge > 0;
+    if (va_in && vb_in) {
+        // va and vb are not on same edge
+        const int on_same_edge = va_on_edge & vb_on_edge;
+        if (on_same_edge == 0) {
+            return true;
+        }
+        // edge [vc vd] pierces triangle
+        if (vert_inner_segment_cross_triangle(mesh, unplanar_v[0], unplanar_v[1], c)) {
+            return true;
+        }
+        const int bit = on_same_edge == 1 ? 0 : (on_same_edge == 2 ? 1 : 2);
+        const uint32_t ea = c[(bit + 1) % 3];
+        const uint32_t eb = c[(bit + 2) % 3];
+        for (const uint32_t ev : {ea, eb}) {
+            for (const uint32_t tv : {coplanar_v[0], coplanar_v[1]}) {
+                if (vert_inner_segment_cross_inner_triangle(mesh, ev, c[bit], unplanar_v[0], unplanar_v[1], tv)) {
+                    return true;
+                }
+            }
+        }
+        // otherwise.. the intersection is proper
+        return false;
+    } else if (va_in && vb_in) {
+        // edge [va vb] crosses triangle edge
+        if (vert_inner_segments_cross(mesh, coplanar_v[0], coplanar_v[1], c[0], c[1]) ||
+            vert_inner_segments_cross(mesh, coplanar_v[0], coplanar_v[1], c[1], c[2]) ||
+            vert_inner_segments_cross(mesh, coplanar_v[0], coplanar_v[1], c[2], c[0])) {
+            return true;
+        }
+        // edge [vc vd] pierces triangle
+        if (vert_inner_segment_cross_triangle(mesh, unplanar_v[0], unplanar_v[1], c)) {
+            return true;
+        }
+        for (int i = 0; i < 3; i++) {
+            const uint32_t ea = c[i];
+            const uint32_t eb = c[(i + 1) % 3];
+            for (const uint32_t tv : {coplanar_v[0], coplanar_v[1]}) {
+                if (vert_inner_segment_cross_inner_triangle(mesh, ea, eb, unplanar_v[0], unplanar_v[1], tv)) {
+                    return true;
+                }
+            }
+        }
+        // otherwise.. the intersection is proper
+        return false;
+    } else {
+        // otherwise.. since an intersection exists, it must be improper
+        return true;
+    }
+}
+
+inline void find_improper_intersection(
+    const TetMesh& mesh, const uint32_t* triangle, const std::vector<uint32_t> tets, IType* tet_marks
+) {
+    std::unordered_map<uint32_t, int> vert_ori_map;
+    const auto vert_ori = [&vert_ori_map, &triangle, &mesh](const uint32_t vid) {
+        const auto iter = vert_ori_map.find(vid);
+        if (iter != vert_ori_map.end()) {
+            return iter->second;
+        } else {
+            const int ori = mesh.orient3d(triangle[0], triangle[1], triangle[2], vid);
+            vert_ori_map.emplace(vid, ori);
+            return ori;
+        }
+    };
+    uint32_t coplanar_v[3];
+    uint32_t unplanar_v[3];
+    for (const uint32_t tid : tets) {
+        const Tet& tet = mesh.tets[tid];
+        int tet_vert_oris[4]{
+            vert_ori(tet.data[0]), vert_ori(tet.data[1]), vert_ori(tet.data[2]), vert_ori(tet.data[3])};
+        const auto n_coplannar_v = std::count(tet_vert_oris, tet_vert_oris + 4, 0);
+        if (n_coplannar_v == 3) {
+            uint32_t oppo_vid = 0;
+            for (uint32_t i = 0, j = 0; i < 4; i++) {
+                if (tet_vert_oris[i] == 0) {
+                    coplanar_v[j++] = tet.data[i];
+                } else {
+                    unplanar_v[0] = tet.data[i];
+                    oppo_vid = i;
+                }
+            }
+            if (intersection_class_tetface(mesh, triangle, coplanar_v)) {
+                tet_marks[tid] = static_cast<IType>(oppo_vid + 10);
+                continue;
+            }
+        } else if (n_coplannar_v == 2) {
+            int sign_ori = 0;
+            for (uint32_t i = 0, j = 0, k = 0; i < 4; i++) {
+                if (tet_vert_oris[i] == 0) {
+                    coplanar_v[j++] = tet.data[i];
+                } else {
+                    unplanar_v[k++] = tet.data[i];
+                    sign_ori += tet_vert_oris[i] > 0 ? 1 : -1;
+                }
+            }
+            if (sign_ori != 0) {
+                continue;
+            }
+            if (intersection_class_tetedge(mesh, triangle, coplanar_v, unplanar_v)) {
+                tet_marks[tid] = IType::IMPROPER_INTERSECTION;
+                continue;
+            }
+        }
+        tet_marks[tid] = IType::IMPROPER_INTERSECTION;
     }
 }
 

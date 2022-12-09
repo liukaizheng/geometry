@@ -9,6 +9,8 @@ inline int orient2d_EEE(const explicitPoint2D& p1, const explicitPoint2D& p2, co
     return (ret > 0) - (ret < 0);
 }
 
+inline bool same_point(const double* p, const double* q) { return p[0] == q[0] && p[1] == q[1] && p[2] == q[2]; }
+
 inline int orient2d_SEE_filtered(const implicitPoint2D_SSI& p1, const double* p2, const double* p3) {
     double max_var = 0;
     if (!p1.getFilteredLambda(max_var)) {
@@ -4350,6 +4352,15 @@ bool GenericPoint3D::inner_segment_cross_inner_triangle(
     return true;
 }
 
+bool GenericPoint3D::inner_segment_cross_triangle(
+    const double* u1, const double* u2, const double* v1, const double* v2, const double* v3
+) {
+    return point_in_inner_segment(v1, u1, u2) || point_in_inner_segment(v2, u1, u2) ||
+           point_in_inner_segment(v3, u1, u2) || inner_segments_cross(v2, v3, u1, u2) ||
+           inner_segments_cross(v3, v1, u1, u2) || inner_segments_cross(v1, v2, u1, u2) ||
+           inner_segment_cross_inner_triangle(u1, u2, v1, v2, v3);
+}
+
 bool GenericPoint3D::mis_alignment(const double* p, const double* q, const double* r) {
     // Projection on (x,y)-plane
     if (orient2d(p, q, r) != .0) return true;
@@ -4387,6 +4398,71 @@ bool GenericPoint3D::point_in_inner_segment(const double* p, const double* v1, c
          (v1[1] < v2[1] && v1[1] < p[1] && p[1] < v2[1]) || (v1[1] > v2[1] && v1[1] > p[1] && p[1] > v2[1]) ||
          (v1[2] < v2[2] && v1[2] < p[2] && p[2] < v2[2]) || (v1[2] > v2[2] && v1[2] > p[2] && p[2] > v2[2]))
     );
+}
+bool GenericPoint3D::point_in_segment(const double* p, const double* v1, const double* v2) {
+    return same_point(p, v1) || same_point(p, v2) || point_in_inner_segment(p, v1, v2);
+}
+
+bool GenericPoint3D::point_in_inner_triangle(const double* p, const double* v1, const double* v2, const double* v3) {
+    int o1, o2, oo2, oo4, oo6;
+
+    // Projection on (x,y)-plane -> p VS v1
+    o1 = GenericPoint2D::sign_orient2d(p, v2, v3);
+    o2 = GenericPoint2D::sign_orient2d(v1, v2, v3);
+    oo2 = o2;
+    if (o1 != o2) return false;
+
+    // Projection on (y,z)-plane -> p VS v1
+    o1 = GenericPoint2D::sign_orient2d(p + 1, v2 + 1, v3 + 1);
+    o2 = GenericPoint2D::sign_orient2d(v1 + 1, v2 + 1, v3 + 1);
+    oo4 = o2;
+    if (o1 != o2) return false;
+
+    // Projection on (x,z)-plane -> p VS v1
+    const double pxz[] = {p[0], p[2]};
+    const double v1xz[] = {v1[0], v1[2]};
+    const double v2xz[] = {v2[0], v2[2]};
+    const double v3xz[] = {v3[0], v3[2]};
+    o1 = GenericPoint2D::sign_orient2d(pxz, v2xz, v3xz);
+    o2 = GenericPoint2D::sign_orient2d(v1xz, v2xz, v3xz);
+    oo6 = o2;
+    if (o1 != o2) return false;
+
+    // Projection on (x,y)-plane -> p VS v2
+    o1 = GenericPoint2D::sign_orient2d(p, v3, v1);
+    o2 = oo2;
+    if (o1 != o2) return false;
+
+    // Projection on (y,z)-plane -> p VS v2
+    o1 = GenericPoint2D::sign_orient2d(p + 1, v3 + 1, v1 + 1);
+    o2 = oo4;
+    if (o1 != o2) return false;
+
+    // Projection on (x,z)-plane -> p VS v2
+    o1 = GenericPoint2D::sign_orient2d(pxz, v3xz, v1xz);
+    o2 = oo6;
+    if (o1 != o2) return false;
+
+    // Projection on (x,y)-plane -> p VS v3
+    o1 = GenericPoint2D::sign_orient2d(p, v1, v2);
+    o2 = oo2;
+    if (o1 != o2) return false;
+
+    // Projection on (y,z)-plane -> p VS v3
+    o1 = GenericPoint2D::sign_orient2d(p + 1, v1 + 1, v2 + 1);
+    o2 = oo4;
+    if (o1 != o2) return false;
+
+    // Projection on (x,z)-plane -> p VS v3
+    o1 = GenericPoint2D::sign_orient2d(pxz, v1xz, v2xz);
+    o2 = oo6;
+    if (o1 != o2) return false;
+
+    return true;
+}
+bool GenericPoint3D::point_in_triangle(const double* p, const double* v1, const double* v2, const double* v3) {
+    return GenericPoint3D::point_in_segment(p, v1, v2) || GenericPoint3D::point_in_segment(p, v2, v3) ||
+           GenericPoint3D::point_in_segment(p, v3, v1) || GenericPoint3D::point_in_inner_triangle(p, v1, v2, v3);
 }
 
 bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2) {

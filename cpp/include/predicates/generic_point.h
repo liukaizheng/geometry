@@ -124,6 +124,8 @@ class GenericPoint3D {
     // intersection occours in both segment and triangle interior.
     static bool inner_segment_cross_inner_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
     
+    static bool inner_segment_cross_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
+    
     // return true when three points are not aligned
     static bool mis_alignment(const double* p, const double* q, const double* r);
     
@@ -134,8 +136,13 @@ class GenericPoint3D {
     // return true when segments properly intesect.
     static bool inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2);
     
-    static bool point_in_inner_segment(const double * p, const double * v1, const double * v2);
+    static bool point_in_inner_segment(const double* p, const double* v1, const double* v2);
     
+    static bool point_in_segment(const double* p, const double* v1, const double* v2);
+    
+    static bool point_in_inner_triangle(const double* p, const double* v1, const double* v2, const double* v3);
+    
+    static bool point_in_triangle(const double* p, const double* v1, const double* v2, const double* v3);
 };
 
 class explicitPoint3D : public GenericPoint3D {
