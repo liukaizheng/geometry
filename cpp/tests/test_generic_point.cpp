@@ -49,17 +49,17 @@ TEST_CASE("orient 2d") {
 
 TEST_CASE("orient 3d") {
     SUBCASE("explicit A") {
-        explicitPoint3D p1(0.0, 0.0, 0.0);
+        ExplicitPoint3D p1(0.0, 0.0, 0.0);
         SUBCASE("explicit B") { 
-            explicitPoint3D p2(1.0, 0.0, 0.0);
+            ExplicitPoint3D p2(1.0, 0.0, 0.0);
             SUBCASE("explicit C") { 
-                explicitPoint3D p3(1.0, 1.0, 1.0);
+                ExplicitPoint3D p3(1.0, 1.0, 1.0);
                 SUBCASE("explicit D") { 
-                    explicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+                    ExplicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
                     CHECK(GenericPoint3D::orient3D(p1, p2, p3, p4) == 0);
                 }
                 SUBCASE("lpi D") {
-                    implicitPoint3D_LPI p4{
+                    ImplicitPointLPI p4{
                         {1.0, 1.0, -1.0},
                         {1.0 / 3.0, 1.0 / 3.0, 1.1 / 3.0},
                         {0.0, 0.0, 0.0},
@@ -71,29 +71,29 @@ TEST_CASE("orient 3d") {
         }
     }
     SUBCASE("lpi A") {
-        implicitPoint3D_LPI p1{{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
+        ImplicitPointLPI p1{{0.0, 0.0, 0.0}, {0.0, 0.0, 1.0}, {0.0, 0.0, 0.0}, {1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}};
         SUBCASE("lpi B") {
-            implicitPoint3D_LPI p2{{1.0, 0.0, 0.0}, {0.0, 0.0, 2.0 / 3.0}, {0.0, 7.0 / 3.0, 0.0}, {1.0 / 7.1, 0.0, 0.0}, {0.0, 1.0, 0.0}};
+            ImplicitPointLPI p2{{1.0, 0.0, 0.0}, {0.0, 0.0, 2.0 / 3.0}, {0.0, 7.0 / 3.0, 0.0}, {1.0 / 7.1, 0.0, 0.0}, {0.0, 1.0, 0.0}};
             SUBCASE("explicit C") { 
-                explicitPoint3D p3(1.0, 1.0, 1.0);
+                ExplicitPoint3D p3(1.0, 1.0, 1.0);
                 SUBCASE("explicit D") {
-                    explicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+                    ExplicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
                     CHECK(GenericPoint3D::orient3D(p1, p2, p3, p4) == 0);
                 }
             }
             SUBCASE("lpi C") {
-                implicitPoint3D_LPI p3{
+                ImplicitPointLPI p3{
                     {1.0, 1.0, 1.0},
                     {0.0, 0.0, 2.0 / 3.0},
                     {0.0, 7.0 / 3.3, 1.0},
                     {1.0 / 9.1, 0.0, 1.0},
                     {0.0, 1.0, 1.0}};
                 SUBCASE("explicit D") { 
-                    explicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
+                    ExplicitPoint3D p4(1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0);
                     CHECK(GenericPoint3D::orient3D(p1, p2, p3, p4) == 0);
                 }
                 SUBCASE("lpi D") {
-                    implicitPoint3D_LPI p4{
+                    ImplicitPointLPI p4{
                         {1.0, 1.0, -1.0},
                         {1.0 / 3.0, 1.0 / 3.0, 1.1 / 3.0},
                         {0.0, 0.0, 0.0},
@@ -105,19 +105,19 @@ TEST_CASE("orient 3d") {
         }
     }
     SUBCASE("tpi A") {
-        implicitPoint3D_TPI p1{{0.0, 0.0, 0.0},   {1.0, 0.0, 0.0},   {0.0, 1.0, 0.0},
+        ImplicitPointTPI p1{{0.0, 0.0, 0.0},   {1.0, 0.0, 0.0},   {0.0, 1.0, 0.0},
                                {2.91, 0.0, 0.19}, {1.0, 0.0, 1.0},   {9.17, 0.0, 0.11},
                                {0.0, 3.74, 2.22}, {0.0, 0.19, 2.22}, {0.0, 7.17, 4.62}};
         SUBCASE("tpi B") {
-            implicitPoint3D_TPI p2{{0.0, 0.0, 0.0},   {1.0, 0.0, 0.0},   {0.0, 1.0, 0.0},
+            ImplicitPointTPI p2{{0.0, 0.0, 0.0},   {1.0, 0.0, 0.0},   {0.0, 1.0, 0.0},
                                    {2.91, 0.0, 0.19}, {1.0, 0.0, 1.0},   {9.17, 0.0, 0.11},
                                    {1.0, 3.74, 2.22}, {1.0, 0.19, 2.22}, {1.0, 7.17, 4.62}};
             SUBCASE("tpi C") {
-                implicitPoint3D_TPI p3{{0.0, 0.0, 1.0},   {1.0, 0.0, 1.0},   {0.0, 1.0, 1.0},
+                ImplicitPointTPI p3{{0.0, 0.0, 1.0},   {1.0, 0.0, 1.0},   {0.0, 1.0, 1.0},
                                        {2.91, 1.0, 0.19}, {1.0, 1.0, 1.0},   {9.17, 1.0, 0.11},
                                        {1.0, 3.74, 2.22}, {1.0, 0.19, 2.22}, {1.0, 7.17, 4.62}};
                 SUBCASE("lpi D") {
-                    implicitPoint3D_LPI p4{
+                    ImplicitPointLPI p4{
                         {1.0, 1.0, -1.0},
                         {1.0 / 3.0, 1.0 / 3.0, 1.111111 / 3.0},
                         {0.0, 0.0, 0.0},
@@ -126,7 +126,7 @@ TEST_CASE("orient 3d") {
                     CHECK(GenericPoint3D::orient3D(p1, p2, p3, p4) == 0);
                 }
                 SUBCASE("tpi D") {
-                    implicitPoint3D_TPI p4{{0.0, 0.0, 0.5},   {1.0, 0.0, 0.5},   {0.0, 1.0, 0.5},
+                    ImplicitPointTPI p4{{0.0, 0.0, 0.5},   {1.0, 0.0, 0.5},   {0.0, 1.0, 0.5},
                                            {2.91, 0.5, 0.19}, {1.0, 0.5, 1.0},   {9.17, 0.5, 0.11},
                                            {0.5, 3.74, 2.22}, {0.5, 0.19, 2.22}, {0.5, 7.17, 4.62}};
                     CHECK(GenericPoint3D::orient3D(p1, p2, p3, p4) == 0);

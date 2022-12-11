@@ -527,7 +527,7 @@ void implicitPoint2D_SSI::getExactLambda(double* lx, int& lxl, double* ly, int& 
     }
 }
 
-inline int orient3d_LEEE_filtered(const implicitPoint3D_LPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_LEEE_filtered(const ImplicitPointLPI& p1, const double* a, const double* b, const double* c) {
     double max_var;
     if (!p1.getFilteredLambda(max_var)) return 0;
 
@@ -579,7 +579,7 @@ inline int orient3d_LEEE_filtered(const implicitPoint3D_LPI& p1, const double* a
     return IPSign::ZERO;
 }
 
-inline int orient3d_LEEE_interval(const implicitPoint3D_LPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_LEEE_interval(const ImplicitPointLPI& p1, const double* a, const double* b, const double* c) {
     if (!p1.getIntervalLambda()) return 0;
 
     IntervalNumber dcx(p1.dfilter[3] * c[0]);
@@ -612,7 +612,7 @@ inline int orient3d_LEEE_interval(const implicitPoint3D_LPI& p1, const double* a
     return m012.sign();
 }
 
-inline int orient3d_LEEE_exact(const implicitPoint3D_LPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_LEEE_exact(const ImplicitPointLPI& p1, const double* a, const double* b, const double* c) {
     std::vector<double> l1x, l1y, l1z, d1;
     int l1x_len, l1y_len, l1z_len, d1_len;
     p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
@@ -681,7 +681,7 @@ inline int orient3d_LEEE_exact(const implicitPoint3D_LPI& p1, const double* a, c
     }
 }
 
-inline int orient3d_LEEE(const implicitPoint3D_LPI& p1, const double* p2, const double* p3, const double* p4) {
+inline int orient3d_LEEE(const ImplicitPointLPI& p1, const double* p2, const double* p3, const double* p4) {
     int ret;
     if ((ret = orient3d_LEEE_filtered(p1, p2, p3, p4)) != IPSign::ZERO) {
         return ret;
@@ -692,7 +692,7 @@ inline int orient3d_LEEE(const implicitPoint3D_LPI& p1, const double* p2, const 
     return orient3d_LEEE_exact(p1, p2, p3, p4);
 }
 
-inline int orient3d_TEEE_filtered(const implicitPoint3D_TPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_TEEE_filtered(const ImplicitPointTPI& p1, const double* a, const double* b, const double* c) {
     double max_var;
     if (!p1.getFilteredLambda(max_var)) return 0;
 
@@ -744,7 +744,7 @@ inline int orient3d_TEEE_filtered(const implicitPoint3D_TPI& p1, const double* a
     return IPSign::ZERO;
 }
 
-inline int orient3d_TEEE_interval(const implicitPoint3D_TPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_TEEE_interval(const ImplicitPointTPI& p1, const double* a, const double* b, const double* c) {
     if (!p1.getIntervalLambda()) return 0;
 
     IntervalNumber dcx(p1.dfilter[3] * c[0]);
@@ -777,7 +777,7 @@ inline int orient3d_TEEE_interval(const implicitPoint3D_TPI& p1, const double* a
     return m012.sign();
 }
 
-inline int orient3d_TEEE_exact(const implicitPoint3D_TPI& p1, const double* a, const double* b, const double* c) {
+inline int orient3d_TEEE_exact(const ImplicitPointTPI& p1, const double* a, const double* b, const double* c) {
     std::vector<double> l1x, l1y, l1z, d1;
     int l1x_len, l1y_len, l1z_len, d1_len;
     p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
@@ -846,7 +846,7 @@ inline int orient3d_TEEE_exact(const implicitPoint3D_TPI& p1, const double* a, c
     }
 }
 
-inline int orient3d_TEEE(const implicitPoint3D_TPI& p1, const double* p2, const double* p3, const double* p4) {
+inline int orient3d_TEEE(const ImplicitPointTPI& p1, const double* p2, const double* p3, const double* p4) {
     int ret;
     if ((ret = orient3d_TEEE_filtered(p1, p2, p3, p4)) != IPSign::ZERO) {
         return ret;
@@ -858,7 +858,7 @@ inline int orient3d_TEEE(const implicitPoint3D_TPI& p1, const double* p2, const 
 }
 
 inline int orient3d_LLEE_filtered(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const double* p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const double* p3, const double* p4
 ) {
     double max_var = 0;
     if (!p1.getFilteredLambda(max_var) || !p2.getFilteredLambda(max_var)) return 0;
@@ -912,7 +912,7 @@ inline int orient3d_LLEE_filtered(
 }
 
 inline int orient3d_LLEE_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const double* p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const double* p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda()) return IPSign::ZERO;
 
@@ -950,7 +950,7 @@ inline int orient3d_LLEE_interval(
 }
 
 inline int
-orient3d_LLEE_exact(const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const double* p3, const double* p4) {
+orient3d_LLEE_exact(const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const double* p3, const double* p4) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, d1, d2;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, d1_len, d2_len;
     p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
@@ -1027,7 +1027,7 @@ orient3d_LLEE_exact(const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2
 }
 
 inline int
-orient3d_LLEE(const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const double* p3, const double* p4) {
+orient3d_LLEE(const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const double* p3, const double* p4) {
     int ret;
     if ((ret = orient3d_LLEE_filtered(p1, p2, p3, p4)) != IPSign::ZERO) {
         return ret;
@@ -1039,7 +1039,7 @@ orient3d_LLEE(const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, cons
 }
 
 inline int orient3d_LTEE_filtered(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4
 ) {
     double max_var = 0;
     if (!p1.getFilteredLambda(max_var) || !p2.getFilteredLambda(max_var)) return 0;
@@ -1096,7 +1096,7 @@ inline int orient3d_LTEE_filtered(
 }
 
 inline int orient3d_LTEE_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda()) return IPSign::ZERO;
 
@@ -1134,7 +1134,7 @@ inline int orient3d_LTEE_interval(
 }
 
 inline int
-orient3d_LTEE_exact(const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4) {
+orient3d_LTEE_exact(const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, d1, d2;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, d1_len, d2_len;
     p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
@@ -1211,7 +1211,7 @@ orient3d_LTEE_exact(const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2
 }
 
 inline int
-orient3d_LTEE(const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4) {
+orient3d_LTEE(const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4) {
     int ret;
     if ((ret = orient3d_LTEE_filtered(p1, p2, p3, p4)) != IPSign::ZERO) {
         return ret;
@@ -1223,7 +1223,7 @@ orient3d_LTEE(const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, cons
 }
 
 inline int orient3d_TTEE_filtered(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4
 ) {
     double max_var = 0;
     if (!p1.getFilteredLambda(max_var) || !p2.getFilteredLambda(max_var)) return 0;
@@ -1283,7 +1283,7 @@ inline int orient3d_TTEE_filtered(
 }
 
 inline int orient3d_TTEE_interval(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda()) return IPSign::ZERO;
 
@@ -1321,7 +1321,7 @@ inline int orient3d_TTEE_interval(
 }
 
 inline int
-orient3d_TTEE_exact(const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4) {
+orient3d_TTEE_exact(const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, d1, d2;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, d1_len, d2_len;
     p1.getExactLambda(l1x, l1x_len, l1y, l1y_len, l1z, l1z_len, d1, d1_len);
@@ -1398,7 +1398,7 @@ orient3d_TTEE_exact(const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2
 }
 
 inline int
-orient3d_TTEE(const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const double* p3, const double* p4) {
+orient3d_TTEE(const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const double* p3, const double* p4) {
     int ret;
     if ((ret = orient3d_TTEE_filtered(p1, p2, p3, p4)) != IPSign::ZERO) {
         return ret;
@@ -1410,7 +1410,7 @@ orient3d_TTEE(const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, cons
 }
 
 inline int orient3d_LLLE_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3, const double*& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3, const double*& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -1452,7 +1452,7 @@ inline int orient3d_LLLE_interval(
 }
 
 inline int orient3d_LLLE_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3, const double* p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, d1, d2, d3;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, d1_len, d2_len, d3_len;
@@ -1537,7 +1537,7 @@ inline int orient3d_LLLE_exact(
 }
 
 inline int orient3d_LLLE(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3, const double* p4
 ) {
     int ret = orient3d_LLLE_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -1547,7 +1547,7 @@ inline int orient3d_LLLE(
 }
 
 inline int orient3d_LLTE_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -1588,7 +1588,7 @@ inline int orient3d_LLTE_interval(
 }
 
 inline int orient3d_LLTE_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, d1, d2, d3;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, d1_len, d2_len, d3_len;
@@ -1673,7 +1673,7 @@ inline int orient3d_LLTE_exact(
 }
 
 inline int orient3d_LLTE(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
 
     int ret = orient3d_LLTE_interval(p1, p2, p3, p4);
@@ -1684,7 +1684,7 @@ inline int orient3d_LLTE(
 }
 
 inline int orient3d_LTTE_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -1725,7 +1725,7 @@ inline int orient3d_LTTE_interval(
 }
 
 inline int orient3d_LTTE_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, d1, d2, d3;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, d1_len, d2_len, d3_len;
@@ -1810,7 +1810,7 @@ inline int orient3d_LTTE_exact(
 }
 
 inline int orient3d_LTTE(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     int ret = orient3d_LTTE_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -1820,7 +1820,7 @@ inline int orient3d_LTTE(
 }
 
 inline int orient3d_TTTE_interval(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -1861,7 +1861,7 @@ inline int orient3d_TTTE_interval(
 }
 
 inline int orient3d_TTTE_exact(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, d1, d2, d3;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, d1_len, d2_len, d3_len;
@@ -1946,7 +1946,7 @@ inline int orient3d_TTTE_exact(
 }
 
 inline int orient3d_TTTE(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3, const double* p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3, const double* p4
 ) {
     int ret = orient3d_TTTE_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -1956,8 +1956,8 @@ inline int orient3d_TTTE(
 }
 
 inline int orient3d_LLLL_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_LPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointLPI& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -2011,8 +2011,8 @@ inline int orient3d_LLLL_interval(
 }
 
 inline int orient3d_LLLL_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_LPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointLPI& p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
@@ -2118,8 +2118,8 @@ inline int orient3d_LLLL_exact(
 }
 
 inline int orient3d_LLLL(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_LPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointLPI& p4
 ) {
     int ret = orient3d_LLLL_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -2129,8 +2129,8 @@ inline int orient3d_LLLL(
 }
 
 inline int orient3d_LLLT_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -2181,8 +2181,8 @@ inline int orient3d_LLLT_interval(
 }
 
 inline int orient3d_LLLT_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
@@ -2287,8 +2287,8 @@ inline int orient3d_LLLT_exact(
 }
 
 inline int orient3d_LLLT(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_LPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointLPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     int ret = orient3d_LLLT_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -2298,8 +2298,8 @@ inline int orient3d_LLLT(
 }
 
 inline int orient3d_LLTT_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -2350,8 +2350,8 @@ inline int orient3d_LLTT_interval(
 }
 
 inline int orient3d_LLTT_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
@@ -2456,8 +2456,8 @@ inline int orient3d_LLTT_exact(
 }
 
 inline int orient3d_LLTT(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_LPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointLPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     int ret = orient3d_LLTT_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -2467,8 +2467,8 @@ inline int orient3d_LLTT(
 }
 
 inline int orient3d_LTTT_interval(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -2519,8 +2519,8 @@ inline int orient3d_LTTT_interval(
 }
 
 inline int orient3d_LTTT_exact(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
@@ -2625,8 +2625,8 @@ inline int orient3d_LTTT_exact(
 }
 
 inline int orient3d_LTTT(
-    const implicitPoint3D_LPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointLPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     int ret = orient3d_LTTT_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -2636,8 +2636,8 @@ inline int orient3d_LTTT(
 }
 
 inline int orient3d_TTTT_interval(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     if (!p1.getIntervalLambda() || !p2.getIntervalLambda() || !p3.getIntervalLambda() || !p4.getIntervalLambda()) {
         return IPSign::ZERO;
@@ -2688,8 +2688,8 @@ inline int orient3d_TTTT_interval(
 }
 
 inline int orient3d_TTTT_exact(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     std::vector<double> l1x, l1y, l1z, l2x, l2y, l2z, l3x, l3y, l3z, l4x, l4y, l4z, d1, d2, d3, d4;
     int l1x_len, l1y_len, l1z_len, l2x_len, l2y_len, l2z_len, l3x_len, l3y_len, l3z_len, l4x_len, l4y_len, l4z_len,
@@ -2795,8 +2795,8 @@ inline int orient3d_TTTT_exact(
 }
 
 inline int orient3d_TTTT(
-    const implicitPoint3D_TPI& p1, const implicitPoint3D_TPI& p2, const implicitPoint3D_TPI& p3,
-    const implicitPoint3D_TPI& p4
+    const ImplicitPointTPI& p1, const ImplicitPointTPI& p2, const ImplicitPointTPI& p3,
+    const ImplicitPointTPI& p4
 ) {
     int ret = orient3d_TTTT_interval(p1, p2, p3, p4);
     if (ret != 0) {
@@ -3060,7 +3060,7 @@ inline int orient_xy_iee_exact(
     }
 }
 
-inline int orient_xy_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_xy_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3074,7 +3074,7 @@ inline int orient_xy_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b,
     return orient_xy_iee_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, b.ptr(), c.ptr());
 }
 
-inline int orient_yz_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_yz_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3089,7 +3089,7 @@ inline int orient_yz_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b,
     return orient_xy_iee_exact(l1y, l1y_len, l1z, l1z_len, d1, d1_len, b.ptr() + 1, c.ptr() + 1);
 }
 
-inline int orient_zx_lee(const implicitPoint3D_LPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_zx_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3136,7 +3136,7 @@ orient_xy_tee_filtered(const double* l1, const double d1, const double* p2, cons
     return IPSign::ZERO;
 }
 
-inline int orient_xy_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_xy_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3150,7 +3150,7 @@ inline int orient_xy_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b,
     return orient_xy_iee_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, b.ptr(), c.ptr());
 }
 
-inline int orient_yz_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_yz_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3165,7 +3165,7 @@ inline int orient_yz_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b,
     return orient_xy_iee_exact(l1y, l1y_len, l1z, l1z_len, d1, d1_len, b.ptr() + 1, c.ptr() + 1);
 }
 
-inline int orient_zx_tee(const implicitPoint3D_TPI& a, const explicitPoint3D& b, const explicitPoint3D& c) {
+inline int orient_zx_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3277,7 +3277,7 @@ inline int orient_xy_iie_exact(
     }
 }
 
-inline int orient_xy_lle(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const explicitPoint3D& c) {
+inline int orient_xy_lle(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3298,7 +3298,7 @@ inline int orient_xy_lle(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     return orient_xy_iie_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, l2x, l2x_len, l2y, l2y_len, d2, d2_len, c.ptr());
 }
 
-inline int orient_yz_lle(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const explicitPoint3D& c) {
+inline int orient_yz_lle(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3321,7 +3321,7 @@ inline int orient_yz_lle(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     );
 }
 
-inline int orient_zx_lle(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const explicitPoint3D& c) {
+inline int orient_zx_lle(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3379,7 +3379,7 @@ inline int orient_xy_lte_filtered(
     return IPSign::ZERO;
 }
 
-inline int orient_xy_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_xy_lte(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3400,7 +3400,7 @@ inline int orient_xy_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     return orient_xy_iie_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, l2x, l2x_len, l2y, l2y_len, d2, d2_len, c.ptr());
 }
 
-inline int orient_yz_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_yz_lte(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3423,7 +3423,7 @@ inline int orient_yz_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_zx_lte(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_zx_lte(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3480,7 +3480,7 @@ inline int orient_xy_tte_filtered(
     return IPSign::ZERO;
 }
 
-inline int orient_xy_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_xy_tte(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3501,7 +3501,7 @@ inline int orient_xy_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI
     return orient_xy_iie_exact(l1x, l1x_len, l1y, l1y_len, d1, d1_len, l2x, l2x_len, l2y, l2y_len, d2, d2_len, c.ptr());
 }
 
-inline int orient_yz_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_yz_tte(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3524,7 +3524,7 @@ inline int orient_yz_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_zx_tte(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const explicitPoint3D& c) {
+inline int orient_zx_tte(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ExplicitPoint3D& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3648,7 +3648,7 @@ inline int orient_xy_iii_exact(
     }
 }
 
-inline int orient_xy_lll(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_LPI& c) {
+inline int orient_xy_lll(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointLPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3675,7 +3675,7 @@ inline int orient_xy_lll(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     );
 }
 
-inline int orient_yz_lll(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_LPI& c) {
+inline int orient_yz_lll(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointLPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3702,7 +3702,7 @@ inline int orient_yz_lll(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     );
 }
 
-inline int orient_zx_lll(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_LPI& c) {
+inline int orient_zx_lll(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointLPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3760,7 +3760,7 @@ inline int orient_xy_llt_filtered(
     return IPSign::ZERO;
 }
 
-inline int orient_xy_llt(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_xy_llt(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3787,7 +3787,7 @@ inline int orient_xy_llt(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     );
 }
 
-inline int orient_yz_llt(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_yz_llt(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3814,7 +3814,7 @@ inline int orient_yz_llt(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI
     );
 }
 
-inline int orient_zx_llt(const implicitPoint3D_LPI& a, const implicitPoint3D_LPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_zx_llt(const ImplicitPointLPI& a, const ImplicitPointLPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3875,7 +3875,7 @@ inline int orient_xy_ltt_filtered(
     return IPSign::ZERO;
 }
 
-inline int orient_xy_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_xy_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3902,7 +3902,7 @@ inline int orient_xy_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_yz_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_yz_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3929,7 +3929,7 @@ inline int orient_yz_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_zx_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_zx_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     if (!a.getFilteredLambda(max_var) || !b.getFilteredLambda(max_var) || !c.getFilteredLambda(max_var)) return 0;
     int ret;
@@ -3956,7 +3956,7 @@ inline int orient_zx_ltt(const implicitPoint3D_LPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_xy_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_xy_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     if (!a.getIntervalLambda() || !b.getIntervalLambda() || !c.getIntervalLambda()) return 0;
     int ret;
     if ((ret = orient_xy_iii_interval(
@@ -3976,7 +3976,7 @@ inline int orient_xy_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_yz_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_yz_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     if (!a.getIntervalLambda() || !b.getIntervalLambda() || !c.getIntervalLambda()) return 0;
     int ret;
     if ((ret = orient_xy_iii_interval(
@@ -3996,7 +3996,7 @@ inline int orient_yz_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI
     );
 }
 
-inline int orient_zx_ttt(const implicitPoint3D_TPI& a, const implicitPoint3D_TPI& b, const implicitPoint3D_TPI& c) {
+inline int orient_zx_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     if (!a.getIntervalLambda() || !b.getIntervalLambda() || !c.getIntervalLambda()) return 0;
     int ret;
     if ((ret = orient_xy_iii_interval(
@@ -4148,9 +4148,9 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
-        const explicitPoint3D& pa = a.toExplicit3D();
-        const explicitPoint3D& pb = b.toExplicit3D();
-        const explicitPoint3D& pc = b.toExplicit3D();
+        const ExplicitPoint3D& pa = a.toExplicit3D();
+        const ExplicitPoint3D& pb = b.toExplicit3D();
+        const ExplicitPoint3D& pc = b.toExplicit3D();
         const double aptr[2] = {pa.z, pa.x};
         const double bptr[2] = {pb.z, pb.x};
         const double cptr[2] = {pc.z, pc.x};
@@ -4564,7 +4564,7 @@ inline bool lambda3d_LPI_filtered(
     return ((filter[3] > lambda_d_eps || filter[3] < -lambda_d_eps));
 }
 
-bool implicitPoint3D_LPI::getFilteredLambda(double& mv) const {
+bool ImplicitPointLPI::getFilteredLambda(double& mv) const {
     if (needsFilteredLambda()) {
         if (!lambda3d_LPI_filtered(ip.ptr(), iq.ptr(), ir.ptr(), is.ptr(), it.ptr(), ssfilter.data())) {
             ssfilter[3] = 0.0;
@@ -4629,7 +4629,7 @@ inline bool lambda3d_LPI_interval(
     return dfilter[3].signIsReliable();
 }
 
-bool implicitPoint3D_LPI::getIntervalLambda() const {
+bool ImplicitPointLPI::getIntervalLambda() const {
     if (needsIntervalLambda()) {
         lambda3d_LPI_interval(
             ip.x, ip.y, ip.z, iq.x, iq.y, iq.z, ir.x, ir.y, ir.z, is.x, is.y, is.z, it.x, it.y, it.z, dfilter.data()
@@ -4760,7 +4760,7 @@ inline void normalizeLambda3D(double* lx, int lxl, double* ly, int lyl, double* 
     exact_scale(dl, d, m);
 }
 
-void implicitPoint3D_LPI::getExactLambda(
+void ImplicitPointLPI::getExactLambda(
     std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
     std::vector<double>& d, int& dl
 ) const {
@@ -5265,7 +5265,7 @@ inline void lambda3d_TPI_exact(
     lambda_d_len = fast_expansion_diff_zeroelim(dab_len, dab.data(), dc_len, dc.data(), lambda_d.data());
 }
 
-bool implicitPoint3D_TPI::getFilteredLambda(double& mv) const {
+bool ImplicitPointTPI::getFilteredLambda(double& mv) const {
     if (needsFilteredLambda()) {
         if (!lambda3d_TPI_filtered(
                 iv1.ptr(), iv2.ptr(), iv3.ptr(), iw1.ptr(), iw2.ptr(), iw3.ptr(), iu1.ptr(), iu2.ptr(), iu3.ptr(),
@@ -5287,7 +5287,7 @@ bool implicitPoint3D_TPI::getFilteredLambda(double& mv) const {
     return ssfilter[3] != 0.0;
 }
 
-bool implicitPoint3D_TPI::getIntervalLambda() const {
+bool ImplicitPointTPI::getIntervalLambda() const {
     if (needsIntervalLambda()) {
         lambda3d_TPI_interval(
             iv1.x, iv1.y, iv1.z, iv2.x, iv2.y, iv2.z, iv3.x, iv3.y, iv3.z, iw1.x, iw1.y, iw1.z, iw2.x, iw2.y, iw2.z,
@@ -5303,7 +5303,7 @@ bool implicitPoint3D_TPI::getIntervalLambda() const {
     return dfilter[3].signIsReliable();
 }
 
-void implicitPoint3D_TPI::getExactLambda(
+void ImplicitPointTPI::getExactLambda(
     std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
     std::vector<double>& d, int& dl
 ) const {

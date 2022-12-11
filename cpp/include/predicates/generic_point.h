@@ -106,66 +106,66 @@ class GenericPoint3D {
     bool isLPI() const { return type == Point3DType::LPI; }
     bool isTPI() const { return type == Point3DType::TPI; }
 
-    const class explicitPoint3D& toExplicit3D() const { return reinterpret_cast<const explicitPoint3D&>(*this); }
-    const class implicitPoint3D_LPI& toLPI() const { return reinterpret_cast<const implicitPoint3D_LPI&>(*this); }
-    const class implicitPoint3D_TPI& toTPI() const { return reinterpret_cast<const implicitPoint3D_TPI&>(*this); }
+    const class ExplicitPoint3D& toExplicit3D() const { return reinterpret_cast<const ExplicitPoint3D&>(*this); }
+    const class ImplicitPointLPI& toLPI() const { return reinterpret_cast<const ImplicitPointLPI&>(*this); }
+    const class ImplicitPointTPI& toTPI() const { return reinterpret_cast<const ImplicitPointTPI&>(*this); }
 
     static int orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
-    
+
     static int orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
-    
+
     static int max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3);
-    
+
     static int sign_orient3d(const double* v1, const double* v2, const double* v3, const double* v4);
-    
+
     // segment and triangle properly intersects, i.e.
-    // intersection occours in both segment and triangle interior.
+    // intersection occurs in both segment and triangle interior.
     static bool inner_segment_cross_inner_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
-    
+
     static bool inner_segment_cross_triangle(const double* u1, const double* u2, const double* v1, const double* v2, const double* v3);
-    
+
     // return true when three points are not aligned
     static bool mis_alignment(const double* p, const double* q, const double* r);
-    
-    // return true when points p and q lies both on the same side of the straight line passing througt v1 and v2.
+
+    // return true when points p and q lies both on the same side of the straight line passing through v1 and v2.
     // Note. points and segment must be coplanar
     static bool same_half_plane(const double* p, const double* q, const double* v1, const double* v2);
-    
-    // return true when segments properly intesect.
+
+    // return true when segments properly intersect.
     static bool inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2);
-    
+
     static bool point_in_inner_segment(const double* p, const double* v1, const double* v2);
-    
+
     static bool point_in_segment(const double* p, const double* v1, const double* v2);
-    
+
     static bool point_in_inner_triangle(const double* p, const double* v1, const double* v2, const double* v3);
-    
+
     static bool point_in_triangle(const double* p, const double* v1, const double* v2, const double* v3);
 };
 
-class explicitPoint3D : public GenericPoint3D {
+class ExplicitPoint3D : public GenericPoint3D {
   public:
     double x, y, z;
-    inline explicitPoint3D() : GenericPoint3D(Point3DType::EXPLICIT3D), x{0.0}, y{0.0}, z{0.0} {}
-    inline explicitPoint3D(double _x, double _y, double _z)
+    inline ExplicitPoint3D() : GenericPoint3D(Point3DType::EXPLICIT3D), x{0.0}, y{0.0}, z{0.0} {}
+    inline ExplicitPoint3D(double _x, double _y, double _z)
         : GenericPoint3D(Point3DType::EXPLICIT3D), x(_x), y(_y), z(_z) {}
-    inline explicitPoint3D(const explicitPoint3D& b) : GenericPoint3D(Point3DType::EXPLICIT3D), x(b.x), y(b.y), z(b.z) {}
+    inline ExplicitPoint3D(const ExplicitPoint3D& b) : GenericPoint3D(Point3DType::EXPLICIT3D), x(b.x), y(b.y), z(b.z) {}
     const double* ptr() const { return &x; }
 };
 
-class implicitPoint3D_LPI : public GenericPoint3D {
-    const explicitPoint3D &ip, &iq;      // The line
-    const explicitPoint3D &ir, &is, &it; // The plane
+class ImplicitPointLPI : public GenericPoint3D {
+    const ExplicitPoint3D &ip, &iq;      // The line
+    const ExplicitPoint3D &ir, &is, &it; // The plane
 
   public:
     mutable std::array<double, 5> ssfilter;        // semi-static filter
     mutable std::array<IntervalNumber, 4> dfilter; // dynamic filter
 
-    implicitPoint3D_LPI(
-        const explicitPoint3D& _p, const explicitPoint3D& _q, const explicitPoint3D& _r, const explicitPoint3D& _s,
-        const explicitPoint3D& _t
+    ImplicitPointLPI(
+        const ExplicitPoint3D& _p, const ExplicitPoint3D& _q, const ExplicitPoint3D& _r, const ExplicitPoint3D& _s,
+        const ExplicitPoint3D& _t
     )
         : GenericPoint3D(Point3DType::LPI), ip(_p), iq(_q), ir(_r), is(_s),
           it(_t), ssfilter{
@@ -184,18 +184,18 @@ class implicitPoint3D_LPI : public GenericPoint3D {
     bool needsIntervalLambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
 };
 
-class implicitPoint3D_TPI : public GenericPoint3D {
-    const explicitPoint3D &iv1, &iv2, &iv3; // Plane 1
-    const explicitPoint3D &iw1, &iw2, &iw3; // Plane 2
-    const explicitPoint3D &iu1, &iu2, &iu3; // Plane 3
+class ImplicitPointTPI : public GenericPoint3D {
+    const ExplicitPoint3D &iv1, &iv2, &iv3; // Plane 1
+    const ExplicitPoint3D &iw1, &iw2, &iw3; // Plane 2
+    const ExplicitPoint3D &iu1, &iu2, &iu3; // Plane 3
 
   public:
     mutable std::array<double, 5> ssfilter;        // semi-static filter
     mutable std::array<IntervalNumber, 4> dfilter; // dynamic filter
-    implicitPoint3D_TPI(
-        const explicitPoint3D& _v1, const explicitPoint3D& _v2, const explicitPoint3D& _v3, const explicitPoint3D& _w1,
-        const explicitPoint3D& _w2, const explicitPoint3D& _w3, const explicitPoint3D& _u1, const explicitPoint3D& _u2,
-        const explicitPoint3D& _u3
+    ImplicitPointTPI(
+        const ExplicitPoint3D& _v1, const ExplicitPoint3D& _v2, const ExplicitPoint3D& _v3, const ExplicitPoint3D& _w1,
+        const ExplicitPoint3D& _w2, const ExplicitPoint3D& _w3, const ExplicitPoint3D& _u1, const ExplicitPoint3D& _u2,
+        const ExplicitPoint3D& _u3
     )
         : GenericPoint3D(Point3DType::TPI), iv1(_v1), iv2(_v2), iv3(_v3), iw1(_w1), iw2(_w2), iw3(_w3), iu1(_u1),
           iu2(_u2),
