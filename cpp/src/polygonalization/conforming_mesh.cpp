@@ -174,17 +174,8 @@ enum class IType {
     OVERLAP2D_F2 = 2,
     OVERLAP2D_F3 = 3,
     IMPROPER_INTERSECTION = 4,
-
-    UNDEFINED = 5,
-
-    INTERSECTION = 6,
-    IMPROPER_INTERSECTION_COUNTED = 7,
-    PROPER_INTERSECTION_COUNTED = 8,
-
-    OVERLAP2D_F0_COUNTED = 10,
-    OVERLAP2D_F1_COUNTED = 11,
-    OVERLAP2D_F2_COUNTED = 12,
-    OVERLAP2D_F3_COUNTED = 13
+    INTERSECTION = 5,
+    UNDEFINED = 6
 };
 
 inline bool vert_inner_segment_cross_inner_triangle(
@@ -450,7 +441,7 @@ inline void intersection_constraint_sides(
         const uint32_t va = triangle[(i + 1) % 3];
         const uint32_t vb = triangle[(i + 2) % 3];
         uint32_t tid = tet_vert_on_constraint_sides(
-            mesh, triangle[va], triangle[vb], connect_verts.data(), temp_tets, intersected_tets, intersect_mark
+            mesh, va, vb, connect_verts.data(), temp_tets, intersected_tets, intersect_mark
         );
         while (connect_verts[1] != vb) {
             switch (connect_verts[0]) {
@@ -653,7 +644,7 @@ inline void find_improper_intersection(
             }
         }
         if (zero.size() == 3) {
-            uint32_t oppo_vid = 0;
+            const uint32_t oppo_vid = tet.index(neg.empty() ? pos[0] : neg[0]);
             if (intersection_class_tetface(mesh, triangle, zero.data())) {
                 tet_marks[tid] = static_cast<IType>(oppo_vid);
                 continue;
@@ -690,6 +681,93 @@ inline void find_improper_intersection(
     }
 }
 
+inline IType tet_intersects_triangle_interior(const TetMesh& mesh, const uint32_t* c, const uint32_t tid) {
+    const uint32_t* verts = mesh.tets[tid].data.data();
+    int t_ori[4];
+    bool t_in_c[4];
+    for (uint32_t i = 0; i < 3; i++) {
+        t_ori[i] = mesh.orient3d(verts[i], c[0], c[1], c[2]);
+        t_in_c[i] = t_ori[i] == 0 && vert_point_in_inner_triangle(mesh, verts[i], c);
+    }
+    if (mesh.is_hull_tet(tid)) {
+        if (t_in_c[0] && t_in_c[1] && t_in_c[2]) {
+            return IType::INTERSECTION;
+        } else {
+            return IType::UNDEFINED;
+        }
+    }
+    t_ori[3] = mesh.orient3d(verts[3], c[0], c[1], c[2]);
+    t_in_c[3] = t_ori[3] == 0 && vert_point_in_inner_triangle(mesh, verts[3], c);
+    std::vector<uint32_t> verts_in_c;
+    std::vector<uint32_t> verts_out_c;
+    for (uint32_t i = 0; i < 4; i++) {
+        if (t_in_c[0]) {
+            verts_in_c.emplace_back(i);
+        } else {
+            verts_out_c.emplace_back(i);
+        }
+    }
+    if (verts_in_c.size() == 3) {
+        return static_cast<IType>(verts_out_c[0]);
+    } else if (verts_in_c.size() == 2) {
+        if (t_ori[verts_out_c[0]] == t_ori[verts_out_c[1]]) {
+            return IType::INTERSECTION;
+        } else {
+            return IType::IMPROPER_INTERSECTION;
+        }
+    } else if (verts_in_c.size() == 1) {
+        if (t_ori[verts_out_c[0]] == t_ori[verts_out_c[1]] && t_ori[verts_out_c[0]] == t_ori[verts_out_c[2]]) {
+            return IType::INTERSECTION;
+        } else {
+            return IType::IMPROPER_INTERSECTION;
+        }
+    } else {
+        for (uint32_t i = 0; i < 3; i++) {
+            for (uint32_t j = i + 1; j < 4; j++) {
+                if (t_ori[i] != t_ori[j] &&
+                    vert_inner_segment_cross_inner_triangle(mesh, verts[i], verts[j], c[0], c[1], c[2])) {
+                    return IType::IMPROPER_INTERSECTION;
+                }
+            }
+        }
+        return IType::UNDEFINED;
+    }
+}
+
+inline void in_constraint_interior_test(
+    TetMesh& mesh, const uint32_t* triangle, const uint32_t tid, std::vector<uint32_t>& intersected_tets,
+    std::vector<uint32_t>& no_intersect_tets, IType* marks
+) {
+    const auto type = tet_intersects_triangle_interior(mesh, triangle, tid);
+    if (type == IType::UNDEFINED) {
+        no_intersect_tets.emplace_back(tid);
+        mesh.mark_test(tid);
+    } else {
+        marks[tid] = type;
+        intersected_tets.emplace_back(tid);
+    }
+}
+
+inline void intersection_constraint_interior(
+    TetMesh& mesh, const uint32_t* triangle, std::vector<uint32_t>& intersected_tets, IType* intersect_marks
+) {
+    std::vector<uint32_t> no_intersection_tets;
+    for (uint32_t i = 0; i < intersected_tets.size(); i++) {
+        const uint32_t tid = intersected_tets[i];
+        for (uint32_t j = 0; j < 4; j++) {
+            const uint32_t adj_tet = mesh.tets[tid].nei[j].tet;
+            if (intersect_marks[adj_tet] == IType::UNDEFINED && !mesh.mark_tested(adj_tet)) {
+                in_constraint_interior_test(
+                    mesh, triangle, adj_tet, intersected_tets, no_intersection_tets, intersect_marks
+                );
+            }
+        }
+    }
+    for (const uint32_t t : no_intersection_tets) {
+        mesh.unmark_test(t);
+    }
+}
+
 void insert_constraints(TetMesh& mesh, const Constraints& constraints, std::vector<std::vector<uint32_t>>* tet_map) {
     const uint32_t n_triangles = static_cast<uint32_t>(constraints.triangles.size() / 3);
     std::vector<uint32_t> temp_tets;
@@ -706,5 +784,13 @@ void insert_constraints(TetMesh& mesh, const Constraints& constraints, std::vect
         std::vector<uint32_t> intersected_tets;
         intersection_constraint_sides(mesh, triangle, temp_tets, intersected_tets, intersect_marks);
         find_improper_intersection(mesh, triangle, intersected_tets, intersect_marks.data());
+        intersection_constraint_interior(mesh, triangle, intersected_tets, intersect_marks.data());
+        for (const uint32_t tid : intersected_tets) {
+            uint32_t type = static_cast<uint32_t>(intersect_marks[tid]);
+            if (type < 5) {
+                tet_map[type][tid].emplace_back(i);
+            }
+            intersect_marks[tid] = IType::UNDEFINED;
+        }
     }
 }

@@ -10,7 +10,7 @@ void make_polyhedral_mesh_from_triangles(
     auto mesh = TetMesh::tetrahedralize(points, n_points, 1e-8);
     place_virtual_constraints(mesh, constraints);
     // clang-format off
-    // 0: tet; 1: f0; 2: f1; 3: f2; 4: f3.
+    // 0: f0; 1: f1; 2: f2; 3: f3; 4: tet.
     std::array<std::vector<std::vector<uint32_t>>, 5> tet_map{{
         std::vector<std::vector<uint32_t>>(mesh.tets.size()),
         std::vector<std::vector<uint32_t>>(mesh.tets.size()),
