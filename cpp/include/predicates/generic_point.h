@@ -102,15 +102,15 @@ class GenericPoint3D {
   public:
     GenericPoint3D(const Point3DType t) : type(t) {}
     int get_type() const { return static_cast<int>(type); }
-    bool isExplicit3D() const { return type == Point3DType::EXPLICIT3D; }
-    bool isLPI() const { return type == Point3DType::LPI; }
-    bool isTPI() const { return type == Point3DType::TPI; }
+    bool is_explicit() const { return type == Point3DType::EXPLICIT3D; }
+    bool is_lpi() const { return type == Point3DType::LPI; }
+    bool is_tpi() const { return type == Point3DType::TPI; }
 
-    const class ExplicitPoint3D& toExplicit3D() const { return reinterpret_cast<const ExplicitPoint3D&>(*this); }
-    const class ImplicitPointLPI& toLPI() const { return reinterpret_cast<const ImplicitPointLPI&>(*this); }
-    const class ImplicitPointTPI& toTPI() const { return reinterpret_cast<const ImplicitPointTPI&>(*this); }
+    const class ExplicitPoint3D& to_explicit() const { return reinterpret_cast<const ExplicitPoint3D&>(*this); }
+    const class ImplicitPointLPI& to_lpi() const { return reinterpret_cast<const ImplicitPointLPI&>(*this); }
+    const class ImplicitPointTPI& to_tpi() const { return reinterpret_cast<const ImplicitPointTPI&>(*this); }
 
-    static int orient3D(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
+    static int orient3d(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
 
     static int orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
@@ -172,16 +172,16 @@ class ImplicitPointLPI : public GenericPoint3D {
                       {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                        std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0.0}} {}
 
-    bool getFilteredLambda(double& mv) const;
-    bool getIntervalLambda() const;
-    void getExactLambda(
+    bool get_filtered_lambda(double& mv) const;
+    bool get_interval_lambda() const;
+    void get_exact_lambda(
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
 
   private:
-    bool needsFilteredLambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN
-    bool needsIntervalLambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
+    bool need_filtered_lambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN
+    bool need_interval_lambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
 };
 
 class ImplicitPointTPI : public GenericPoint3D {
@@ -203,14 +203,14 @@ class ImplicitPointTPI : public GenericPoint3D {
                         {std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(),
                          std::numeric_limits<double>::quiet_NaN(), std::numeric_limits<double>::quiet_NaN(), 0.0}} {}
 
-    bool getFilteredLambda(double& mv) const;
-    bool getIntervalLambda() const;
-    void getExactLambda(
+    bool get_filtered_lambda(double& mv) const;
+    bool get_interval_lambda() const;
+    void get_exact_lambda(
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
 
   private:
-    bool needsFilteredLambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN
-    bool needsIntervalLambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
+    bool need_filtered_lambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN
+    bool need_interval_lambda() const { return (dfilter[3].isNAN()); }         // TRUE if NAN
 };
