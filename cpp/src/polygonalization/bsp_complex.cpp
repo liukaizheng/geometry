@@ -1,3 +1,4 @@
+#include <iterator>
 #include <polygonalization/bsp_complex.h>
 
 #include <unordered_map>
@@ -111,17 +112,125 @@ BSPComplex::BSPComplex(
             }
         }
     }
+    vert_visit.resize(vertices.size(), 0);
+    edge_visit.resize(edges.size(), 0);
 }
 
-void verts_orient_wrt_plane(BSPComplex* complex, const uint32_t* c, const std::vector<uint32_t>& verts) {
-    
+inline bool is_point_built_from_plane(
+    const GenericPoint3D* p, const ExplicitPoint3D* p0, const ExplicitPoint3D* p1, const ExplicitPoint3D* p2
+) {
+    if (p->is_explicit()) {
+        return p == p0 || p == p1 || p == p2;
+    } else if (p->is_lpi()) {
+        const ImplicitPointLPI& lpi = p->to_lpi();
+        return (
+            (((p0 == &lpi.p()) && (p1 == &lpi.q())) || ((p1 == &lpi.p()) && (p0 == &lpi.q()))) ||
+            (((p1 == &lpi.p()) && (p2 == &lpi.q())) || ((p2 == &lpi.p()) && (p1 == &lpi.q()))) ||
+            (((p2 == &lpi.p()) && (p0 == &lpi.q())) || ((p0 == &lpi.p()) && (p2 == &lpi.q()))) ||
+            ((p0 == &lpi.r()) && (p1 == &lpi.s()) && (p2 == &lpi.t()))
+        );
+    } else {
+        const ImplicitPointTPI& tpi = p->to_tpi();
+        return (
+            ((p0 == &tpi.v1()) && (p1 == &tpi.v2()) && (p2 == &tpi.v3())) ||
+            ((p0 == &tpi.w1()) && (p1 == &tpi.w2()) && (p2 == &tpi.w3())) ||
+            ((p0 == &tpi.u1()) && (p1 == &tpi.u2()) && (p2 == &tpi.u3()))
+        );
+    }
 }
 
-void find_coplanar_constraints(const uint32_t cid ,const uint32_t* c, std::vector<uint32_t>& conplanar_c) {
+inline void
+verts_orient_wrt_plane(BSPComplex* complex, const uint32_t* c, const uint32_t* verts, const uint32_t n_verts) {
+    const auto& p0 = complex->vertices[c[0]]->to_explicit();
+    const auto& p1 = complex->vertices[c[1]]->to_explicit();
+    const auto& p2 = complex->vertices[c[2]]->to_explicit();
+    for (uint32_t i = 0; i < n_verts; i++) {
+        const uint32_t vid = verts[i];
+        if (complex->verts_oris[vid] != 2) {
+            continue;
+        }
+        const auto* p = complex->vertices[vid];
+        if (is_point_built_from_plane(p, &p0, &p1, &p2)) {
+            complex->verts_oris[vid] = 0;
+        } else {
+            complex->verts_oris[vid] = GenericPoint3D::orient3d(*p, p0, p2, p1);
+        }
+    }
+}
+
+inline void find_coplanar_constraints(
+    BSPComplex* complex, std::vector<uint32_t>& cell_constraints, const uint32_t* c, std::vector<uint32_t>& coplanar_c
+) {
+    const auto it = std::remove_if(cell_constraints.begin(), cell_constraints.end(), [complex, c](const uint32_t cid) {
+        if (complex->constraints->is_virtual(cid)) {
+            return false;
+        }
+        const uint32_t* tri = &complex->constraints->triangles[cid * 3];
+        verts_orient_wrt_plane(complex, c, tri, 3);
+        return complex->verts_oris[tri[0]] == 0 && complex->verts_oris[tri[1]] == 0 && complex->verts_oris[tri[2]] == 0;
+    });
+    std::move(it, cell_constraints.end(), std::back_inserter(coplanar_c));
+    cell_constraints.resize(static_cast<uint32_t>(std::distance(cell_constraints.begin(), it)));
+}
+
+inline void find_cell_verts_and_edges(
+    BSPComplex* complex, const BSPCell& cell, std::vector<uint32_t>& cell_verts, std::vector<uint32_t>& cell_edges
+) {
+    std::vector<uint32_t>& vert_visit = complex->vert_visit;
+    std::vector<uint32_t>& edge_visit = complex->edge_visit;
+    for (uint32_t i = 0; i < cell.faces.size(); i++) {
+        const BSPFace& face = complex->faces[cell.faces[i]];
+        for (const uint32_t eid : face.edges) {
+            const BSPEdge& edge = complex->edges[eid];
+            if (edge_visit[eid] == 0) {
+                edge_visit[eid] = 1;
+                cell_edges.emplace_back(eid);
+                for (const uint32_t ev : {edge.vertices[0], edge.vertices[1]}) {
+                    if (vert_visit[ev] == 0) {
+                        vert_visit[ev] = 1;
+                        cell_verts.emplace_back(ev);
+                    }
+                }
+            }
+        }
+    }
+}
+
+inline void count_vert_orient(
+    const std::vector<uint32_t>& verts, const int* orient, uint32_t& n_over, uint32_t& n_under, uint32_t& n_on
+) {
+    for (const uint32_t v : verts) {
+        if (orient[v] == 0) {
+            n_on += 1;
+        } else if (orient[v] == 1) {
+            n_over += 1;
+        } else if (orient[v] == -1) {
+            n_under += 1;
+        }
+    }
 }
 
 void BSPComplex::split_cell(const uint32_t cid) {
     BSPCell& cell = cells[cid];
     const uint32_t constr_id = cell.constraints.back();
+    cell.constraints.pop_back();
     const uint32_t* constraint = &constraints->triangles[constr_id * 3];
+    std::vector<uint32_t> coplanar_c;
+    find_coplanar_constraints(this, cell.constraints, constraint, coplanar_c);
+    if (!constraints->is_virtual(constr_id)) {
+        coplanar_c.emplace_back(constr_id);
+    }
+
+    std::vector<uint32_t> cell_verts;
+    std::vector<uint32_t> cell_edges;
+    find_cell_verts_and_edges(this, cell, cell_verts, cell_edges);
+
+    verts_orient_wrt_plane(this, constraint, cell_verts.data(), static_cast<uint32_t>(cell_verts.size()));
+
+    uint32_t n_over = 0, n_under = 0, n_on = 0;
+    count_vert_orient(cell_verts, verts_oris.data(), n_over, n_under, n_on);
+
+    for (const uint32_t eid : cell_edges) {
+        const BSPEdge& edge = edges[eid];
+    }
 }

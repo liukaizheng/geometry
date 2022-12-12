@@ -178,6 +178,12 @@ class ImplicitPointLPI : public GenericPoint3D {
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
+        
+    const ExplicitPoint3D& p() const { return ip; }
+    const ExplicitPoint3D& q() const { return iq; }
+    const ExplicitPoint3D& r() const { return ir; }
+    const ExplicitPoint3D& s() const { return is; }
+    const ExplicitPoint3D& t() const { return it; }
 
   private:
     bool need_filtered_lambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN
@@ -209,6 +215,16 @@ class ImplicitPointTPI : public GenericPoint3D {
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
+        
+    const ExplicitPoint3D& v1() const { return iv1; }
+    const ExplicitPoint3D& v2() const { return iv2; }
+    const ExplicitPoint3D& v3() const { return iv3; }
+    const ExplicitPoint3D& w1() const { return iw1; }
+    const ExplicitPoint3D& w2() const { return iw2; }
+    const ExplicitPoint3D& w3() const { return iw3; }
+    const ExplicitPoint3D& u1() const { return iu1; }
+    const ExplicitPoint3D& u2() const { return iu2; }
+    const ExplicitPoint3D& u3() const { return iu3; }
 
   private:
     bool need_filtered_lambda() const { return (ssfilter[3] != ssfilter[3]); } // TRUE if NAN

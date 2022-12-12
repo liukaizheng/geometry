@@ -42,7 +42,9 @@ struct BSPComplex {
     std::vector<BSPFace> faces;
     std::vector<BSPCell> cells;
     const Constraints* constraints;
-    std::vector<int8_t> verts_oris;
+    std::vector<int> verts_oris;
+    std::vector<uint32_t> vert_visit;
+    std::vector<uint32_t> edge_visit;
         
     BSPComplex(
         const TetMesh& mesh, const Constraints* constraints,
