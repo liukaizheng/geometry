@@ -17,11 +17,31 @@ struct BSPEdge {
         mesh_vertices[0] = vertices[0] = ev1;
         mesh_vertices[1] = vertices[1] = ev2;
     }
+
+    BSPEdge split(const uint32_t vid) {
+        BSPEdge e;
+        if (mesh_vertices[2] == TriFace::INVALID) {
+            e.mesh_vertices[0] = mesh_vertices[0];
+            e.mesh_vertices[1] = mesh_vertices[1];
+        } else {
+            e.mesh_vertices[0] = mesh_vertices[0];
+            e.mesh_vertices[1] = mesh_vertices[1];
+            e.mesh_vertices[2] = mesh_vertices[2];
+            e.mesh_vertices[3] = mesh_vertices[3];
+            e.mesh_vertices[4] = mesh_vertices[4];
+            e.mesh_vertices[5] = mesh_vertices[5];
+        }
+        e.vertices[0] = vertices[0];
+        e.vertices[1] = vid;
+        vertices[0] = vid;
+        e.face = face;
+        return e;
+    }
 };
 
 struct BSPFace {
     std::vector<uint32_t> edges;
-    std::vector<uint32_t> cells;
+    uint32_t cells[2];
     std::vector<uint32_t> coplanar_constraints;
     uint32_t mesh_vertices[3];
     FaceColor color;
@@ -45,7 +65,7 @@ struct BSPComplex {
     std::vector<int> verts_oris;
     std::vector<uint32_t> vert_visit;
     std::vector<uint32_t> edge_visit;
-        
+
     BSPComplex(
         const TetMesh& mesh, const Constraints* constraints,
         std::array<std::vector<std::vector<uint32_t>>, 5>&& tet_maps
@@ -55,6 +75,6 @@ struct BSPComplex {
             delete p;
         }
     }
-    
+
     void split_cell(const uint32_t cid);
 };

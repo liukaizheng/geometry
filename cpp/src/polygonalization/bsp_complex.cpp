@@ -1,6 +1,7 @@
 #include <iterator>
 #include <polygonalization/bsp_complex.h>
 
+#include <algorithm>
 #include <unordered_map>
 
 inline uint32_t remove_ghost_tets(const TetMesh& mesh, std::vector<uint32_t>& new_order) {
@@ -210,6 +211,170 @@ inline void count_vert_orient(
     }
 }
 
+inline bool constraint_inner_intersects_edge(const BSPEdge& edge, const int* oris) {
+    return (oris[edge.vertices[0]] > 0 && oris[edge.vertices[1]] < 0) ||
+           (oris[edge.vertices[0]] < 0 && oris[edge.vertices[1]] > 0);
+}
+
+inline uint32_t oppo_edge_face(
+    const std::vector<BSPFace>& faces, const uint32_t eid, const uint32_t fid, const std::vector<uint32_t>& cell_faces
+) {
+    for (const uint32_t f : cell_faces) {
+        if (f == fid) {
+            continue;
+        }
+        const auto& face_edges = faces[f].edges;
+        const auto it = std::find(face_edges.begin(), face_edges.end(), eid);
+        if (it != face_edges.end()) {
+            return f;
+        }
+    }
+    return TriFace::INVALID;
+}
+
+inline uint32_t oppo_cell(const uint32_t cid, const uint32_t* cells) { return cells[0] == cid ? cells[1] : cells[0]; }
+
+inline uint32_t add_lpi_vert(BSPComplex* complex, const BSPEdge& edge, const uint32_t cid) {
+    const uint32_t* tri = &complex->constraints->triangles[cid * 3];
+    auto& vertices = complex->vertices;
+    const uint32_t vid = static_cast<uint32_t>(vertices.size());
+    complex->vertices.emplace_back(new ImplicitPointLPI(
+        vertices[edge.vertices[0]]->to_explicit(), vertices[edge.vertices[1]]->to_explicit(),
+        vertices[tri[0]]->to_explicit(), vertices[tri[1]]->to_explicit(), vertices[tri[2]]->to_explicit()
+    ));
+    complex->verts_oris.emplace_back(2);
+    complex->vert_visit.emplace_back(0);
+    return vid;
+}
+
+inline bool two_equal_vertices(const uint32_t* v1, const uint32_t* v2, uint32_t* comm) {
+    uint32_t i = 0;
+    if (v1[0] == v2[0] || v1[0] == v2[1] || v1[0] == v2[2]) {
+        comm[i++] = v1[0];
+    }
+    if (v1[1] == v2[0] || v1[1] == v2[1] || v1[1] == v2[2]) {
+        comm[i++] = v1[1];
+    }
+    if (v1[2] == v2[0] || v1[2] == v2[1] || v1[2] == v2[2]) {
+        comm[i++] = v1[1];
+    }
+    return i >= 2;
+}
+
+inline uint32_t add_tpi_vert(BSPComplex* complex, const BSPEdge& edge, const uint32_t cid) {
+    const uint32_t* tri = &complex->constraints->triangles[cid * 3];
+    auto& vertices = complex->vertices;
+    const uint32_t vid = static_cast<uint32_t>(vertices.size());
+    uint32_t comm[3];
+    // clang-format off
+    if (two_equal_vertices(tri, edge.mesh_vertices, comm)) {
+        complex->vertices.emplace_back(new ImplicitPointLPI(
+                vertices[comm[0]]->to_explicit(),
+                vertices[comm[1]]->to_explicit(),
+                vertices[edge.mesh_vertices[3]]->to_explicit(),
+                vertices[edge.mesh_vertices[4]]->to_explicit(),
+                vertices[edge.mesh_vertices[5]]->to_explicit()
+        ));
+    } else if (two_equal_vertices(tri, &edge.mesh_vertices[3], comm)) {
+        complex->vertices.emplace_back(new ImplicitPointLPI(
+                vertices[comm[0]]->to_explicit(),
+                vertices[comm[1]]->to_explicit(),
+                vertices[edge.mesh_vertices[0]]->to_explicit(),
+                vertices[edge.mesh_vertices[1]]->to_explicit(),
+                vertices[edge.mesh_vertices[2]]->to_explicit()
+        ));
+    } else if (two_equal_vertices(edge.mesh_vertices, &edge.mesh_vertices[3], comm)) {
+        complex->vertices.emplace_back(new ImplicitPointLPI(
+                vertices[comm[0]]->to_explicit(),
+                vertices[comm[1]]->to_explicit(),
+                vertices[tri[0]]->to_explicit(),
+                vertices[tri[1]]->to_explicit(),
+                vertices[tri[2]]->to_explicit()
+        ));
+    } else {
+        complex->vertices.emplace_back(new ImplicitPointTPI(
+                vertices[edge.mesh_vertices[0]]->to_explicit(),
+                vertices[edge.mesh_vertices[1]]->to_explicit(),
+                vertices[edge.mesh_vertices[2]]->to_explicit(),
+                vertices[edge.mesh_vertices[3]]->to_explicit(),
+                vertices[edge.mesh_vertices[4]]->to_explicit(),
+                vertices[edge.mesh_vertices[5]]->to_explicit(),
+                vertices[tri[0]]->to_explicit(),
+                vertices[tri[1]]->to_explicit(),
+                vertices[tri[2]]->to_explicit()
+        ));
+    }
+    // clang-format on
+    complex->verts_oris.emplace_back(2);
+    complex->vert_visit.emplace_back(0);
+    return vid;
+}
+
+inline void incident(const BSPComplex* complex, const uint32_t eid, std::vector<uint32_t>& ef) {
+    const auto& edge = complex->edges[eid];
+    uint32_t f = edge.face;
+    uint32_t c = complex->faces[f].cells[0];
+    ef.emplace_back(f);
+    while (true) {
+        f = oppo_edge_face(complex->faces, eid, f, complex->cells[c].faces);
+        if (f == edge.face) {
+            return;
+        } else {
+            ef.emplace_back(f);
+        }
+        c = oppo_cell(c, complex->faces[f].cells);
+        if (c == TriFace::INVALID) {
+            break;
+        }
+    }
+    f = edge.face;
+    if ((c = complex->faces[f].cells[1]) == TriFace::INVALID) {
+        return;
+    }
+    while (true) {
+        f = oppo_edge_face(complex->faces, eid, f, complex->cells[c].faces);
+        ef.emplace_back(f);
+        c = oppo_cell(c, complex->faces[f].cells);
+        if (c == TriFace::INVALID) {
+            break;
+        }
+    }
+}
+
+inline bool consecutive_edges(const uint32_t* ev1, const uint32_t* ev2) {
+    return ev1[0] == ev2[0] || ev1[0] == ev2[1] || ev1[1] == ev2[0] || ev1[1] == ev2[1];
+}
+
+inline void add_edge_to_face(BSPComplex* complex, const uint32_t eid, std::vector<uint32_t>& face_edges) {
+    BSPEdge& new_edge = complex->edges[eid];
+    const uint32_t n_edges = static_cast<uint32_t>(face_edges.size());
+    for (uint32_t i = 0; i < n_edges; i++) {
+        if (consecutive_edges(new_edge.vertices, complex->edges[face_edges[i]].vertices)) {
+            const uint32_t pos = (i + 1) % n_edges;
+            if (consecutive_edges(new_edge.vertices, complex->edges[face_edges[pos]].vertices)) {
+                face_edges.emplace(face_edges.begin() + pos, eid);
+            } else {
+                face_edges.emplace(face_edges.begin() + i, eid);
+            }
+            return;
+        }
+    }
+}
+
+inline void split_edge(BSPComplex* complex, const uint32_t eid, const uint32_t constr_id) {
+    BSPEdge& edge = complex->edges[eid];
+    std::vector<uint32_t> ef;
+    incident(complex, eid, ef);
+    const uint32_t new_vid = edge.mesh_vertices[2] == TriFace::INVALID ? add_lpi_vert(complex, edge, constr_id)
+                                                                       : add_tpi_vert(complex, edge, constr_id);
+    const uint32_t new_eid = static_cast<uint32_t>(complex->edges.size());
+    complex->edges.emplace_back(edge.split(new_vid));
+    complex->edge_visit.emplace_back(0);
+    for (const uint32_t f : ef) {
+        add_edge_to_face(complex, new_eid, complex->faces[f].edges);
+    }
+}
+
 void BSPComplex::split_cell(const uint32_t cid) {
     BSPCell& cell = cells[cid];
     const uint32_t constr_id = cell.constraints.back();
@@ -232,5 +397,7 @@ void BSPComplex::split_cell(const uint32_t cid) {
 
     for (const uint32_t eid : cell_edges) {
         const BSPEdge& edge = edges[eid];
+        if (constraint_inner_intersects_edge(edge, verts_oris.data())) {
+        }
     }
 }
