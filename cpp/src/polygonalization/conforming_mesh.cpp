@@ -1,4 +1,5 @@
 #include <polygonalization/conforming_mesh.h>
+#include <polygonalization/bsp_complex.h>
 #include <predicates/generic_point.h>
 
 #include <algorithm>

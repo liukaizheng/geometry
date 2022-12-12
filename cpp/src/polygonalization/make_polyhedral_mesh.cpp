@@ -1,3 +1,4 @@
+#include <polygonalization/bsp_complex.h>
 #include <polygonalization/conforming_mesh.h>
 #include <polygonalization/make_polyhedral_mesh.h>
 #include <triangle/tetrahedron.h>
@@ -20,4 +21,5 @@ void make_polyhedral_mesh_from_triangles(
     }};
     // clang-format on
     insert_constraints(mesh, constraints, tet_map.data());
+    BSPComplex complex{mesh, &constraints, std::move(tet_map)};
 }

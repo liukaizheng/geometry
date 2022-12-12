@@ -15,6 +15,9 @@ struct Constraints {
             triangles[i] = indices[i];
         }
     }
+    bool is_virtual(const uint32_t cid) const {
+        return cid >= n_triangles;
+    }
 };
 
 void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints);

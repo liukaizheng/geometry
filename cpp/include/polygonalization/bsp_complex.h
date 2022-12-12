@@ -43,6 +43,7 @@ struct BSPComplex {
     std::vector<BSPCell> cells;
     const Constraints* constraints;
     std::vector<int8_t> verts_oris;
+        
     BSPComplex(
         const TetMesh& mesh, const Constraints* constraints,
         std::array<std::vector<std::vector<uint32_t>>, 5>&& tet_maps
@@ -52,4 +53,6 @@ struct BSPComplex {
             delete p;
         }
     }
+    
+    void split_cell(const uint32_t cid);
 };

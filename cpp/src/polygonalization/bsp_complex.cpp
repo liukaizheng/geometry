@@ -51,7 +51,7 @@ inline void fill_face_color(
         if (face.coplanar_constraints.empty()) {
             face.color = FaceColor::WHITE;
         } else {
-            face.color = FaceColor::BLACK;
+            face.color = FaceColor::GRAY;
         }
     }
 }
@@ -111,4 +111,17 @@ BSPComplex::BSPComplex(
             }
         }
     }
+}
+
+void verts_orient_wrt_plane(BSPComplex* complex, const uint32_t* c, const std::vector<uint32_t>& verts) {
+    
+}
+
+void find_coplanar_constraints(const uint32_t cid ,const uint32_t* c, std::vector<uint32_t>& conplanar_c) {
+}
+
+void BSPComplex::split_cell(const uint32_t cid) {
+    BSPCell& cell = cells[cid];
+    const uint32_t constr_id = cell.constraints.back();
+    const uint32_t* constraint = &constraints->triangles[constr_id * 3];
 }
