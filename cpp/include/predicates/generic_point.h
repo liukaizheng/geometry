@@ -101,6 +101,8 @@ class GenericPoint3D {
 
   public:
     GenericPoint3D(const Point3DType t) : type(t) {}
+    virtual ~GenericPoint3D() {}
+        
     int get_type() const { return static_cast<int>(type); }
     bool is_explicit() const { return type == Point3DType::EXPLICIT3D; }
     bool is_lpi() const { return type == Point3DType::LPI; }
@@ -109,6 +111,9 @@ class GenericPoint3D {
     const class ExplicitPoint3D& to_explicit() const { return reinterpret_cast<const ExplicitPoint3D&>(*this); }
     const class ImplicitPointLPI& to_lpi() const { return reinterpret_cast<const ImplicitPointLPI&>(*this); }
     const class ImplicitPointTPI& to_tpi() const { return reinterpret_cast<const ImplicitPointTPI&>(*this); }
+    
+    virtual void to_double(double*) = 0;
+    virtual void to_double_approx(double*) = 0;
 
     static int orient3d(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const GenericPoint3D& d);
 
@@ -153,6 +158,17 @@ class ExplicitPoint3D : public GenericPoint3D {
         : GenericPoint3D(Point3DType::EXPLICIT3D), x(_x), y(_y), z(_z) {}
     inline ExplicitPoint3D(const ExplicitPoint3D& b) : GenericPoint3D(Point3DType::EXPLICIT3D), x(b.x), y(b.y), z(b.z) {}
     const double* ptr() const { return &x; }
+        
+    void to_double(double* result) override {
+        result[0] = x;
+        result[1] = y;
+        result[2] = z;
+    }
+    virtual void to_double_approx(double* result) override {
+        result[0] = x;
+        result[1] = y;
+        result[2] = z;
+    }
 };
 
 class ImplicitPointLPI : public GenericPoint3D {
@@ -178,6 +194,8 @@ class ImplicitPointLPI : public GenericPoint3D {
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
+    void to_double(double*) override;
+    virtual void to_double_approx(double*) override;
         
     const ExplicitPoint3D& p() const { return ip; }
     const ExplicitPoint3D& q() const { return iq; }
@@ -215,6 +233,8 @@ class ImplicitPointTPI : public GenericPoint3D {
         std::vector<double>& lx, int& lxl, std::vector<double>& ly, int& lyl, std::vector<double>& lz, int& lzl,
         std::vector<double>& d, int& dl
     ) const;
+    void to_double(double*) override;
+    virtual void to_double_approx(double*) override;
         
     const ExplicitPoint3D& v1() const { return iv1; }
     const ExplicitPoint3D& v2() const { return iv2; }

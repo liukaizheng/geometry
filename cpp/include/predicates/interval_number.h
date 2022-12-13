@@ -49,6 +49,9 @@ class IntervalNumber {
         }
         return IntervalNumber{};
     }
+        
+    double max() const { return sup; }
+    double min() const { return -inf; }
 
     bool isNAN() { return sup != sup; }
     bool isNegative() const { return (sup < 0.0); }
