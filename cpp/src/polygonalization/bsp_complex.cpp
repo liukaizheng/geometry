@@ -562,6 +562,63 @@ inline void add_edges_to_face(BSPComplex* complex, BSPFace& face, const std::vec
     }
 }
 
+inline bool edges_share_common_plane(const BSPEdge& a, const BSPEdge& b) {
+    const uint32_t* mva = a.mesh_vertices;
+    const uint32_t* mvb = b.mesh_vertices;
+    return (
+        mva[0] == mvb[0] && mva[1] == mvb[1] && mva[2] == mvb[2] && mva[3] == mvb[3] && mva[4] == mvb[4] &&
+        mva[5] == mvb[5]
+    );
+}
+
+inline void fix_common_face_orientation(BSPComplex* complex, const uint32_t fid) {
+    BSPFace& face = complex->faces[fid];
+    const uint32_t* mv = face.mesh_vertices;
+    double mvc[9]; // mesh vertex coordinates
+    complex->vertices[mv[0]]->to_double_approx(mvc);
+    complex->vertices[mv[1]]->to_double_approx(mvc + 3);
+    complex->vertices[mv[2]]->to_double_approx(mvc + 6);
+    const int xyz = GenericPoint3D::max_component_at_triangle_normal(mvc, mvc + 3, mvc + 6);
+    double d_base_ori = 0.0;
+    if (xyz == 2) {
+        d_base_ori = orient2d(mvc, mvc + 3, mvc + 6);
+    } else if (xyz == 0) {
+        d_base_ori = orient2d(mvc + 1, mvc + 4, mvc + 7);
+    } else {
+        double p0[2]{mvc[2], mvc[0]};
+        double p1[2]{mvc[5], mvc[3]};
+        double p2[2]{mvc[8], mvc[6]};
+        d_base_ori = orient2d(p0, p1, p2);
+    }
+    int base_ori = (d_base_ori > 0.0) - (d_base_ori < 0.0);
+
+    const BSPEdge& edge0 = complex->edges[face.edges[0]];
+    const uint32_t* first = edge0.vertices.data();
+    const uint32_t* last = complex->edges[face.edges.back()].vertices.data();
+    uint32_t v0, v1;
+    if (first[0] == last[0] || first[0] == last[1]) {
+        v0 = first[0];
+        v1 = first[1];
+    } else {
+        v0 = first[1];
+        v1 = first[0];
+    }
+    for (uint32_t i = 1; i < face.edges.size(); i++) {
+        const BSPEdge& edge = complex->edges[face.edges[i]];
+        if (edges_share_common_plane(edge0, edge)) {
+            continue;
+        }
+        const uint32_t v2 = edge.vertices[0] == v1 ? edge.vertices[1] : edge.vertices[0];
+        int ori = base_ori *
+                  GenericPoint3D::orient2d(*complex->vertices[v0], *complex->vertices[v1], *complex->vertices[v2], xyz);
+        if (ori < 0) {
+            return;
+        } else {
+            std::swap(face.cells[0], face.cells[1]);
+        }
+    }
+}
+
 inline void add_common_face(
     BSPComplex* complex, const uint32_t constr_id, const uint32_t cid, const uint32_t new_cid,
     const std::vector<uint32_t>& cell_edges
@@ -584,6 +641,7 @@ inline void add_common_face(
     }
     complex->cells[cid].faces.emplace_back(new_fid);
     complex->cells[new_cid].faces.emplace_back(new_fid);
+    fix_common_face_orientation(complex, new_fid);
 }
 
 void BSPComplex::split_cell(const uint32_t cid) {
@@ -632,4 +690,6 @@ void BSPComplex::split_cell(const uint32_t cid) {
     cells.emplace_back();
     faces_partition(this, cid, new_cid);
     add_common_face(this, constr_id, cid, new_cid, cell_edges);
+    
+    
 }

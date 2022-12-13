@@ -3041,10 +3041,12 @@ inline int orient_xy_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, co
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var)) {
-        if ((ret = orient_xy_lee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0) return ret;
+        if ((ret = orient_xy_lee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda()) {
-        if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3057,11 +3059,13 @@ inline int orient_yz_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, co
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var)) {
-        if ((ret = orient_xy_lee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) != 0.0)
+        if ((ret = orient_xy_lee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) !=
+            0.0)
             return ret;
     }
     if (a.get_interval_lambda()) {
-        if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3080,7 +3084,8 @@ inline int orient_zx_lee(const ImplicitPointLPI& a, const ExplicitPoint3D& b, co
         if ((ret = orient_xy_lee_filtered(l1, a.ssfilter[3], p2, p3, max_var)) != 0.0) return ret;
     }
     if (a.get_interval_lambda()) {
-          if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3123,11 +3128,13 @@ inline int orient_xy_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, co
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var)) {
-        if ((ret = orient_xy_tee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0) return ret;
+        if ((ret = orient_xy_tee_filtered(a.ssfilter.data(), a.ssfilter[3], b.ptr(), c.ptr(), max_var)) != 0.0)
+            return ret;
     }
-        
+
     if (a.get_interval_lambda()) {
-        if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[0], a.dfilter[1], a.dfilter[3], b.x, b.y, c.x, c.y)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3140,11 +3147,13 @@ inline int orient_yz_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, co
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var)) {
-        if ((ret = orient_xy_tee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) != 0.0)
+        if ((ret = orient_xy_tee_filtered(a.ssfilter.data() + 1, a.ssfilter[3], b.ptr() + 1, c.ptr() + 1, max_var)) !=
+            0.0)
             return ret;
     }
     if (a.get_interval_lambda()) {
-        if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[1], a.dfilter[2], a.dfilter[3], b.y, b.z, c.y, c.z)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3163,7 +3172,8 @@ inline int orient_zx_tee(const ImplicitPointTPI& a, const ExplicitPoint3D& b, co
         if ((ret = orient_xy_tee_filtered(l1, a.ssfilter[3], p2, p3, max_var)) != 0.0) return ret;
     }
     if (a.get_interval_lambda()) {
-        if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0) return ret;
+        if ((ret = orient_xy_iee_interval(a.dfilter[2], a.dfilter[0], a.dfilter[3], b.z, b.x, c.z, c.x)) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1;
@@ -3486,10 +3496,10 @@ inline int orient_xy_tte(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var)) {
-    if ((ret = orient_xy_tte_filtered(
-             a.ssfilter.data(), a.ssfilter[3], b.ssfilter.data(), b.ssfilter[3], c.ptr(), max_var
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_tte_filtered(
+                 a.ssfilter.data(), a.ssfilter[3], b.ssfilter.data(), b.ssfilter[3], c.ptr(), max_var
+             )) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda()) {
         if ((ret = orient_xy_iie_interval(
@@ -3814,11 +3824,11 @@ inline int orient_yz_llt(const ImplicitPointLPI& a, const ImplicitPointLPI& b, c
             return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
-             c.dfilter[2], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
+                 c.dfilter[2], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -3836,18 +3846,18 @@ inline int orient_zx_llt(const ImplicitPointLPI& a, const ImplicitPointLPI& b, c
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var) && c.get_filtered_lambda(max_var)) {
-    const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
-    const double l2[2]{b.ssfilter[2], b.ssfilter[0]};
-    const double l3[2]{c.ssfilter[2], c.ssfilter[0]};
-    if ((ret = orient_xy_llt_filtered(l1, a.ssfilter[3], l2, b.ssfilter[3], l3, c.ssfilter[3], max_var)) != 0.0)
-        return ret;
+        const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
+        const double l2[2]{b.ssfilter[2], b.ssfilter[0]};
+        const double l3[2]{c.ssfilter[2], c.ssfilter[0]};
+        if ((ret = orient_xy_llt_filtered(l1, a.ssfilter[3], l2, b.ssfilter[3], l3, c.ssfilter[3], max_var)) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
-             c.dfilter[0], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
+                 c.dfilter[0], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -3899,18 +3909,18 @@ inline int orient_xy_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, c
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var) && c.get_filtered_lambda(max_var)) {
-    if ((ret = orient_xy_ltt_filtered(
-             a.ssfilter.data(), a.ssfilter[3], b.ssfilter.data(), b.ssfilter[3], c.ssfilter.data(), c.ssfilter[3],
-             max_var
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_ltt_filtered(
+                 a.ssfilter.data(), a.ssfilter[3], b.ssfilter.data(), b.ssfilter[3], c.ssfilter.data(), c.ssfilter[3],
+                 max_var
+             )) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[0], a.dfilter[1], a.dfilter[3], b.dfilter[0], b.dfilter[1], b.dfilter[3], c.dfilter[0],
-             c.dfilter[1], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[0], a.dfilter[1], a.dfilter[3], b.dfilter[0], b.dfilter[1], b.dfilter[3], c.dfilter[0],
+                 c.dfilter[1], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -3928,18 +3938,18 @@ inline int orient_yz_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, c
     double max_var = 0.0;
     int ret;
     if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var) && c.get_filtered_lambda(max_var)) {
-    if ((ret = orient_xy_ltt_filtered(
-             a.ssfilter.data() + 1, a.ssfilter[3], b.ssfilter.data() + 1, b.ssfilter[3], c.ssfilter.data() + 1,
-             c.ssfilter[3], max_var
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_ltt_filtered(
+                 a.ssfilter.data() + 1, a.ssfilter[3], b.ssfilter.data() + 1, b.ssfilter[3], c.ssfilter.data() + 1,
+                 c.ssfilter[3], max_var
+             )) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
-             c.dfilter[2], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
+                 c.dfilter[2], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -3956,19 +3966,19 @@ inline int orient_yz_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, c
 inline int orient_zx_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     double max_var = 0.0;
     int ret;
-    if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var) && c.get_filtered_lambda(max_var))  {
-    const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
-    const double l2[2]{b.ssfilter[2], b.ssfilter[0]};
-    const double l3[2]{c.ssfilter[2], c.ssfilter[0]};
-    if ((ret = orient_xy_ltt_filtered(l1, a.ssfilter[3], l2, b.ssfilter[3], l3, c.ssfilter[3], max_var)) != 0.0)
-        return ret;
+    if (a.get_filtered_lambda(max_var) && b.get_filtered_lambda(max_var) && c.get_filtered_lambda(max_var)) {
+        const double l1[2]{a.ssfilter[2], a.ssfilter[0]};
+        const double l2[2]{b.ssfilter[2], b.ssfilter[0]};
+        const double l3[2]{c.ssfilter[2], c.ssfilter[0]};
+        if ((ret = orient_xy_ltt_filtered(l1, a.ssfilter[3], l2, b.ssfilter[3], l3, c.ssfilter[3], max_var)) != 0.0)
+            return ret;
     }
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
-             c.dfilter[0], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
+                 c.dfilter[0], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -3983,13 +3993,13 @@ inline int orient_zx_ltt(const ImplicitPointLPI& a, const ImplicitPointTPI& b, c
 }
 
 inline int orient_xy_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
-    if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()){
-    int ret;
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[0], a.dfilter[1], a.dfilter[3], b.dfilter[0], b.dfilter[1], b.dfilter[3], c.dfilter[0],
-             c.dfilter[1], c.dfilter[3]
-         )) != 0.0)
-        return ret;
+    if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
+        int ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[0], a.dfilter[1], a.dfilter[3], b.dfilter[0], b.dfilter[1], b.dfilter[3], c.dfilter[0],
+                 c.dfilter[1], c.dfilter[3]
+             )) != 0.0)
+            return ret;
     }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
@@ -4005,13 +4015,13 @@ inline int orient_xy_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
 
 inline int orient_yz_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     if (a.get_interval_lambda() && b.get_interval_lambda() && c.get_interval_lambda()) {
-    int ret;
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
-             c.dfilter[2], c.dfilter[3]
-         )) != 0.0)
-        return ret;
-        }
+        int ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
+                 c.dfilter[2], c.dfilter[3]
+             )) != 0.0)
+            return ret;
+    }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
     int l1x_len, l1y_len, l1z_len, d1_len, l2x_len, l2y_len, l2z_len, d2_len, l3x_len, l3y_len, l3z_len, d3_len;
@@ -4026,13 +4036,13 @@ inline int orient_yz_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
 
 inline int orient_zx_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, const ImplicitPointTPI& c) {
     if (a.get_interval_lambda() && !b.get_interval_lambda() && c.get_interval_lambda()) {
-    int ret;
-    if ((ret = orient_xy_iii_interval(
-             a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
-             c.dfilter[0], c.dfilter[3]
-         )) != 0.0)
-        return ret;
-                }
+        int ret;
+        if ((ret = orient_xy_iii_interval(
+                 a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
+                 c.dfilter[0], c.dfilter[3]
+             )) != 0.0)
+            return ret;
+    }
 
     std::vector<double> l1x, l1y, l1z, d1, l2x, l2y, l2z, d2, l3x, l3y, l3z, d3;
     int l1x_len, l1y_len, l1z_len, d1_len, l2x_len, l2y_len, l2z_len, d2_len, l3x_len, l3y_len, l3z_len, d3_len;
@@ -4049,7 +4059,7 @@ int GenericPoint3D::orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, 
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
-        const double ret = orient2d(a.to_explicit().ptr(), b.to_explicit().ptr(), c.to_explicit().ptr());
+        const double ret = ::orient2d(a.to_explicit().ptr(), b.to_explicit().ptr(), c.to_explicit().ptr());
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
@@ -4113,7 +4123,7 @@ int GenericPoint3D::orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, 
     const int val = a.get_type() * 9 + b.get_type() * 3 + c.get_type();
     switch (val) {
     case 0: {
-        const double ret = orient2d(a.to_explicit().ptr() + 1, b.to_explicit().ptr() + 1, c.to_explicit().ptr() + 1);
+        const double ret = ::orient2d(a.to_explicit().ptr() + 1, b.to_explicit().ptr() + 1, c.to_explicit().ptr() + 1);
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
@@ -4183,7 +4193,7 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
         const double aptr[2] = {pa.z, pa.x};
         const double bptr[2] = {pb.z, pb.x};
         const double cptr[2] = {pc.z, pc.x};
-        const double ret = orient2d(aptr, bptr, cptr);
+        const double ret = ::orient2d(aptr, bptr, cptr);
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
@@ -4242,6 +4252,17 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
         return IPSign::UNDEFINED;
     }
 }
+int GenericPoint3D::orient2d(
+    const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const int n_max
+) {
+    if (n_max == 0)
+        return orient_yz(a, b, c);
+    else if (n_max == 1)
+        return orient_zx(a, b, c);
+    else
+        return orient_xy(a, b, c);
+}
+
 inline int max_component_at_triangle_normal_filtered(const double* ov1, const double* ov2, const double* ov3) {
     double v3x = ov3[0] - ov2[0];
     double v3y = ov3[1] - ov2[1];
@@ -4392,16 +4413,16 @@ bool GenericPoint3D::inner_segment_cross_triangle(
 
 bool GenericPoint3D::mis_alignment(const double* p, const double* q, const double* r) {
     // Projection on (x,y)-plane
-    if (orient2d(p, q, r) != .0) return true;
+    if (::orient2d(p, q, r) != .0) return true;
 
     // Projection on (y,z)-plane
-    if (orient2d(p + 1, q + 1, r + 1) != .0) return true;
+    if (::orient2d(p + 1, q + 1, r + 1) != .0) return true;
 
     // Projection on (x,z)-plane
     const double pxz[] = {p[0], p[2]};
     const double qxz[] = {q[0], q[2]};
     const double rxz[] = {r[0], r[2]};
-    return orient2d(pxz, qxz, rxz) != .0;
+    return ::orient2d(pxz, qxz, rxz) != .0;
 }
 
 bool GenericPoint3D::same_half_plane(const double* p, const double* q, const double* v1, const double* v2) {
@@ -4509,18 +4530,18 @@ bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, co
 
     // If the segment projected on one coordinate plane cross -> segmant cross.
     // Projection on (x,y)-plane
-    if (orient2d(u1, u2, v1) != 0.) return true;
-    if (orient2d(v1, v2, u2) != 0.) return true;
+    if (::orient2d(u1, u2, v1) != 0.) return true;
+    if (::orient2d(v1, v2, u2) != 0.) return true;
     // Projection on (y,z)-plane
-    if (orient2d(u1 + 1, u2 + 1, v1 + 1) != 0.) return true;
-    if (orient2d(v1 + 1, v2 + 1, u2 + 1) != 0.) return true;
+    if (::orient2d(u1 + 1, u2 + 1, v1 + 1) != 0.) return true;
+    if (::orient2d(v1 + 1, v2 + 1, u2 + 1) != 0.) return true;
     // Projection on (z,x)-plane
     const double u1xz[] = {u1[0], u1[2]};
     const double u2xz[] = {u2[0], u2[2]};
     const double v1xz[] = {v1[0], v1[2]};
     const double v2xz[] = {v2[0], v2[2]};
-    if (orient2d(u1xz, u2xz, v1xz) != 0.) return true;
-    if (orient2d(v1xz, v2xz, u2xz) != 0.) return true;
+    if (::orient2d(u1xz, u2xz, v1xz) != 0.) return true;
+    if (::orient2d(v1xz, v2xz, u2xz) != 0.) return true;
 
     return false;
 }
