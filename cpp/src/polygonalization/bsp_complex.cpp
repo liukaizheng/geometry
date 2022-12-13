@@ -186,7 +186,7 @@ inline void find_cell_verts_and_edges(
             if (edge_visit[eid] == 0) {
                 edge_visit[eid] = 1;
                 cell_edges.emplace_back(eid);
-                for (const uint32_t ev : {edge.vertices[0], edge.vertices[1]}) {
+                for (const uint32_t ev : edge.vertices) {
                     if (vert_visit[ev] == 0) {
                         vert_visit[ev] = 1;
                         cell_verts.emplace_back(ev);
@@ -194,6 +194,12 @@ inline void find_cell_verts_and_edges(
                 }
             }
         }
+    }
+    for (const uint32_t v : cell_verts) {
+        vert_visit[v] = 0;
+    }
+    for (const uint32_t e : cell_edges) {
+        edge_visit[e] = 0;
     }
 }
 
@@ -349,9 +355,9 @@ inline void add_edge_to_face(BSPComplex* complex, const uint32_t eid, std::vecto
     BSPEdge& new_edge = complex->edges[eid];
     const uint32_t n_edges = static_cast<uint32_t>(face_edges.size());
     for (uint32_t i = 0; i < n_edges; i++) {
-        if (consecutive_edges(new_edge.vertices, complex->edges[face_edges[i]].vertices)) {
+        if (consecutive_edges(new_edge.vertices.data(), complex->edges[face_edges[i]].vertices.data())) {
             const uint32_t pos = (i + 1) % n_edges;
-            if (consecutive_edges(new_edge.vertices, complex->edges[face_edges[pos]].vertices)) {
+            if (consecutive_edges(new_edge.vertices.data(), complex->edges[face_edges[pos]].vertices.data())) {
                 face_edges.emplace(face_edges.begin() + pos, eid);
             } else {
                 face_edges.emplace(face_edges.begin() + i, eid);
@@ -373,6 +379,211 @@ inline void split_edge(BSPComplex* complex, const uint32_t eid, const uint32_t c
     for (const uint32_t f : ef) {
         add_edge_to_face(complex, new_eid, complex->faces[f].edges);
     }
+}
+
+inline std::vector<uint32_t> face_vertices(BSPComplex* complex, const BSPFace& face) {
+    auto& vert_visit = complex->vert_visit;
+    auto& edges = complex->edges;
+    std::vector<uint32_t> result(face.edges.size());
+    uint32_t idx = 0;
+    for (const uint32_t eid : face.edges) {
+        const BSPEdge& edge = edges[eid];
+        for (const uint32_t vid : edge.vertices) {
+            if (vert_visit[vid] == 0) {
+                vert_visit[vid] = 1;
+                result[idx++] = vid;
+            }
+        }
+    }
+    for (const uint32_t vid : result) {
+        vert_visit[vid] = 0;
+    }
+    return result;
+}
+
+inline bool constraint_inner_intersects_face(const std::vector<uint32_t>& face_verts, int* vert_orient) {
+    uint32_t n_over = 0, n_under = 0, n_on = 0;
+    count_vert_orient(face_verts, vert_orient, n_over, n_under, n_on);
+    return n_over > 0 && n_under > 0;
+}
+
+inline void edges_partition(BSPComplex* complex, const uint32_t fid, const uint32_t new_fid) {
+    BSPFace& face = complex->faces[fid];
+    uint32_t idx = 0;
+    const uint32_t n_edges = static_cast<uint32_t>(face.edges.size());
+    const auto& vert_oris = complex->verts_oris;
+    // search the first edge having first vertex == 0 and second vertex < 0
+    for (; idx < face.edges.size(); idx++) {
+        const uint32_t eid = face.edges[idx];
+        const uint32_t next_eid = face.edges[(idx + 1) % n_edges];
+        const BSPEdge& edge = complex->edges[eid];
+        const BSPEdge& next_edge = complex->edges[next_eid];
+        const uint32_t comm_vert =
+            edge.vertices[0] == next_edge.vertices[0] || edge.vertices[0] == next_edge.vertices[1] ? 0 : 1;
+        if (vert_oris[edge.vertices[comm_vert]] < 0 && vert_oris[edge.vertices[!comm_vert]] == 0) {
+            break;
+        }
+    }
+    std::rotate(face.edges.begin(), face.edges.begin() + idx, face.edges.end());
+    for (idx = 1; idx < face.edges.size(); idx++) {
+        const BSPEdge& edge = complex->edges[face.edges[idx]];
+        if (vert_oris[edge.vertices[0]] == 0 || vert_oris[edge.vertices[1]] == 0) {
+            break;
+        }
+    }
+    complex->faces[new_fid].edges.assign(face.edges.begin(), face.edges.end());
+    face.edges.resize(idx);
+    for (const uint32_t eid : face.edges) {
+        complex->edges[eid].face = new_fid;
+    }
+}
+
+inline void add_common_edge(
+    BSPComplex* complex, const uint32_t fid, const uint32_t new_fid, const uint32_t constr_id, const uint32_t* endpts
+) {
+    BSPFace& face = complex->faces[fid];
+    BSPFace& new_face = complex->faces[new_fid];
+    const uint32_t new_eid = static_cast<uint32_t>(complex->edges.size());
+    complex->edges.emplace_back(
+        endpts[0], endpts[1], face.mesh_vertices, &complex->constraints->triangles[constr_id * 3]
+    );
+    complex->edge_visit.emplace_back(0);
+    complex->edges.back().face = fid;
+    face.edges.emplace_back(new_eid);
+    new_face.edges.emplace_back(new_eid);
+}
+
+inline void
+split_face(BSPComplex* complex, const uint32_t fid, const uint32_t constr_id, const std::vector<uint32_t>& face_verts) {
+    const BSPFace& face = complex->faces[fid];
+    const uint32_t new_fid = static_cast<uint32_t>(complex->faces.size());
+    complex->faces.emplace_back(face.mesh_vertices, face.cells[0], face.cells[1]);
+    complex->faces.back().color = face.color;
+    complex->faces.back().coplanar_constraints = face.coplanar_constraints;
+
+    const auto& face_cells = complex->faces[fid].cells;
+    complex->cells[face_cells[0]].faces.emplace_back(new_fid);
+    if (face_cells[1] != TriFace::INVALID) {
+        complex->cells[face_cells[1]].faces.emplace_back(new_fid);
+    }
+
+    uint32_t zero_verts[2];
+    uint32_t pos = 0;
+    for (const uint32_t vid : face_verts) {
+        if (complex->verts_oris[vid] == 0) {
+            zero_verts[pos++] = 0;
+        }
+    }
+
+    edges_partition(complex, fid, new_fid);
+    add_common_edge(complex, fid, new_fid, constr_id, zero_verts);
+}
+
+inline void move_face(BSPComplex* complex, const uint32_t cell_fid, const uint32_t cid, const uint32_t new_cid) {
+    const uint32_t fid = complex->cells[cid].faces[cell_fid];
+    BSPFace& face = complex->faces[fid];
+    if (face.cells[0] == cid) {
+        face.cells[0] = new_cid;
+    } else {
+        face.cells[1] = new_cid;
+    }
+    complex->cells[new_cid].faces.emplace_back(fid);
+    complex->cells[cid].remove_face(cell_fid);
+}
+
+inline void faces_partition(BSPComplex* complex, const uint32_t cid, const uint32_t new_cid) {
+    BSPCell& cell = complex->cells[cid];
+    uint32_t n_faces = static_cast<uint32_t>(cell.faces.size());
+    uint32_t idx = 0;
+    while (idx < n_faces) {
+        const uint32_t fid = cell.faces[idx];
+        const BSPFace& face = complex->faces[fid];
+        const auto face_verts = face_vertices(complex, face);
+        bool found = false;
+        for (const uint32_t vid : face_verts) {
+            if (complex->verts_oris[vid] > 0) {
+                move_face(complex, idx, cid, new_cid);
+                found = true;
+                n_faces -= 1;
+                break;
+            }
+        }
+        if (!found) {
+            idx += 1;
+        }
+    }
+}
+
+inline void add_edges_to_face(BSPComplex* complex, BSPFace& face, const std::vector<uint32_t>& edges) {
+    std::vector<uint32_t> face_verts(edges.size());
+    auto& vert_visit = complex->vert_visit;
+    uint32_t idx = 0;
+    for (const uint32_t eid : edges) {
+        const BSPEdge& edge = complex->edges[eid];
+        for (const uint32_t vid : edge.vertices) {
+            if (vert_visit[vid] == 0) {
+                face_verts[idx++] = vid;
+                vert_visit[vid] = 1;
+            }
+        }
+    }
+
+    for (idx = 0; idx < face_verts.size(); idx++) {
+        vert_visit[face_verts[idx]] = idx;
+    }
+
+    std::vector<uint32_t> vert_edges(face_verts.size() << 1, TriFace::INVALID);
+    for (const uint32_t eid : edges) {
+        for (const uint32_t vid : complex->edges[eid].vertices) {
+            uint32_t* v_edges = &vert_edges[vert_visit[vid] << 1];
+            if (v_edges[0] != TriFace::INVALID) {
+                v_edges[0] = eid;
+            } else {
+                v_edges[1] = eid;
+            }
+        }
+    }
+
+    face.edges.resize(edges.size());
+
+    idx = 0;
+    uint32_t nv = face_verts[0];
+    uint32_t e = vert_edges[vert_visit[face_verts[0]] << 1];
+    do {
+        face.edges[idx++] = e;
+        const uint32_t* v_edges = &vert_edges[vert_visit[nv] << 1];
+        e = v_edges[0] == e ? v_edges[1] : v_edges[0];
+        const uint32_t* evs = complex->edges[e].vertices.data();
+        nv = evs[0] == nv ? evs[1] : evs[0];
+    } while (idx < edges.size());
+
+    for (const uint32_t vid : face_verts) {
+        vert_visit[vid] = 0;
+    }
+}
+
+inline void add_common_face(
+    BSPComplex* complex, const uint32_t constr_id, const uint32_t cid, const uint32_t new_cid,
+    const std::vector<uint32_t>& cell_edges
+) {
+    const uint32_t new_fid = static_cast<uint32_t>(complex->faces.size());
+    complex->faces.emplace_back(&complex->constraints->triangles[constr_id * 3], cid, new_cid);
+    complex->faces.back().color = complex->constraints->is_virtual(constr_id) ? FaceColor::WHITE : FaceColor::GRAY;
+    std::vector<uint32_t> comm_edges;
+    const auto& vert_oris = complex->verts_oris;
+    for (const uint32_t eid : cell_edges) {
+        const BSPEdge& edge = complex->edges[eid];
+        if (vert_oris[edge.vertices[0]] == 0 && vert_oris[edge.vertices[1]] == 0) {
+            comm_edges.emplace_back(eid);
+        }
+    }
+
+    add_edges_to_face(complex, complex->faces[new_fid], comm_edges);
+    for (const uint32_t eid : comm_edges) {
+        complex->edges[eid].face = new_fid;
+    }
+    complex->cells[cid].faces.emplace_back(new_fid);
+    complex->cells[new_cid].faces.emplace_back(new_fid);
 }
 
 void BSPComplex::split_cell(const uint32_t cid) {
@@ -398,6 +609,27 @@ void BSPComplex::split_cell(const uint32_t cid) {
     for (const uint32_t eid : cell_edges) {
         const BSPEdge& edge = edges[eid];
         if (constraint_inner_intersects_edge(edge, verts_oris.data())) {
+            split_edge(this, eid, constr_id);
+            const uint32_t new_vert = static_cast<uint32_t>(vertices.size() - 1);
+            cell_verts.emplace_back(new_vert);
+            cell_edges.emplace_back(static_cast<uint32_t>(edges.size() - 1));
+            verts_oris[new_vert] = 0;
         }
     }
+
+    const auto n_faces = cell.faces.size();
+    for (uint32_t i = 0; i < n_faces; i++) {
+        const uint32_t fid = cell.faces[i];
+        BSPFace& face = faces[fid];
+        const std::vector<uint32_t> face_verts = face_vertices(this, face);
+        if (constraint_inner_intersects_face(face_verts, verts_oris.data())) {
+            split_face(this, fid, constr_id, face_verts);
+            cell_edges.emplace_back(edges.size() - 1);
+        }
+    }
+
+    const uint32_t new_cid = static_cast<uint32_t>(cells.size());
+    cells.emplace_back();
+    faces_partition(this, cid, new_cid);
+    add_common_face(this, constr_id, cid, new_cid, cell_edges);
 }

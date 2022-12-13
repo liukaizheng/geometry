@@ -9,13 +9,23 @@ enum class FaceColor { BLACK, WHITE, GRAY };
 struct BSPEdge {
     uint32_t mesh_vertices[6]{TriFace::INVALID, TriFace::INVALID, TriFace::INVALID,
                               TriFace::INVALID, TriFace::INVALID, TriFace::INVALID};
-    uint32_t vertices[2];
+    std::array<uint32_t, 2> vertices;
     uint32_t face;
 
     BSPEdge() {}
     BSPEdge(const uint32_t ev1, const uint32_t ev2) {
         mesh_vertices[0] = vertices[0] = ev1;
         mesh_vertices[1] = vertices[1] = ev2;
+    }
+    BSPEdge(const uint32_t ev1, const uint32_t ev2, const uint32_t* tri1, const uint32_t* tri2) {
+        vertices[0] = ev1;
+        vertices[1] = ev2;
+        mesh_vertices[0] = tri1[0];
+        mesh_vertices[1] = tri1[1];
+        mesh_vertices[2] = tri1[2];
+        mesh_vertices[3] = tri2[0];
+        mesh_vertices[4] = tri2[1];
+        mesh_vertices[5] = tri2[2];
     }
 
     BSPEdge split(const uint32_t vid) {
@@ -54,6 +64,15 @@ struct BSPFace {
 struct BSPCell {
     std::vector<uint32_t> faces;
     std::vector<uint32_t> constraints;
+    
+    BSPCell() {}
+    
+    void remove_face(const uint32_t pos) {
+        if (pos + 1 != faces.size()) {
+            faces[pos] = faces.back();
+        }
+        faces.pop_back();
+    }
 };
 
 struct BSPComplex {
