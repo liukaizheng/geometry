@@ -96,4 +96,5 @@ struct BSPComplex {
     }
 
     void split_cell(const uint32_t cid);
+    void decide_color();
 };

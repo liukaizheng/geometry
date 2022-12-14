@@ -644,6 +644,51 @@ inline void add_common_face(
     fix_common_face_orientation(complex, new_fid);
 }
 
+inline void remove_ele(std::vector<uint32_t>& vec, const uint32_t ind) {
+    if (ind + 1 != vec.size()) {
+        vec[ind] = vec.back();
+    }
+    vec.pop_back();
+}
+
+inline void
+constraints_partition(BSPComplex* complex, const uint32_t constr_id, const uint32_t down_cid, const uint32_t up_cid) {
+    BSPCell& down_cell = complex->cells[down_cid];
+    BSPCell& up_cell = complex->cells[up_cid];
+    const uint32_t* constraint = &complex->constraints->triangles[constr_id * 3];
+    uint32_t n_constr = static_cast<uint32_t>(down_cell.constraints.size());
+    auto& vert_oris = complex->verts_oris;
+    for (uint32_t i = 0; i < n_constr;) {
+        const uint32_t* triangle = &complex->constraints->triangles[down_cell.constraints[i]];
+        verts_orient_wrt_plane(complex, constraint, triangle, 3);
+        uint32_t n_over = 0, n_under = 0;
+        for (uint32_t j = 0; j < 3; j++) {
+            if (vert_oris[triangle[j]] == 1) {
+                n_over += 1;
+            } else if (vert_oris[triangle[j]] == -1) {
+                n_under += 1;
+            }
+        }
+        if (n_over == 0 && n_under == 0) { // this constraint is virtual
+            vert_oris[triangle[0]] = 2;
+            vert_oris[triangle[1]] = 2;
+            vert_oris[triangle[2]] = 2;
+            remove_ele(down_cell.constraints, i);
+            n_constr -= 1;
+            continue;
+        }
+        if (n_over > 0) {
+            up_cell.constraints.emplace_back(down_cell.constraints[i]);
+        }
+        if (n_under == 0) {
+            remove_ele(down_cell.constraints, i);
+            n_constr -= 1;
+            continue;
+        }
+        i += 1;
+    }
+}
+
 void BSPComplex::split_cell(const uint32_t cid) {
     BSPCell& cell = cells[cid];
     const uint32_t constr_id = cell.constraints.back();
@@ -690,6 +735,196 @@ void BSPComplex::split_cell(const uint32_t cid) {
     cells.emplace_back();
     faces_partition(this, cid, new_cid);
     add_common_face(this, constr_id, cid, new_cid, cell_edges);
-    
-    
+    faces.back().coplanar_constraints = std::move(coplanar_c);
+    constraints_partition(this, constr_id, cid, new_cid);
+
+    // reset vertex orientation wrt constraint
+    for (const uint32_t vid : cell_verts) {
+        verts_oris[vid] = 2;
+    }
+    auto reset_oris = [this](const std::vector<uint32_t>& constrs) {
+        for (const uint32_t c : constrs) {
+            const uint32_t* tri = &constraints->triangles[c * 3];
+            verts_oris[tri[0]] = 2;
+            verts_oris[tri[1]] = 2;
+            verts_oris[tri[2]] = 2;
+        }
+    };
+    reset_oris(faces.back().coplanar_constraints);
+    reset_oris(cells[cid].constraints);
+    reset_oris(cells[new_cid].constraints);
+}
+
+inline int face_normal_dominant_component(const BSPComplex* complex, const BSPFace& face) {
+    const uint32_t* mv = face.mesh_vertices;
+    double mvc[9]; // mesh vertex coordinates
+    complex->vertices[mv[0]]->to_double_approx(mvc);
+    complex->vertices[mv[1]]->to_double_approx(mvc + 3);
+    complex->vertices[mv[2]]->to_double_approx(mvc + 6);
+    return GenericPoint3D::max_component_at_triangle_normal(mvc, mvc + 3, mvc + 6);
+}
+
+inline void face_baricenter_approx(const BSPComplex* complex, const BSPFace& face, double* bar) {
+    bar[0] = 0.0;
+    bar[1] = 0.0;
+    bar[2] = 0.0;
+
+    const uint32_t* last = complex->edges[face.edges.back()].vertices.data();
+    const uint32_t* first = complex->edges[face.edges[0]].vertices.data();
+    uint32_t vid = first[0] == last[0] || first[0] == last[1] ? first[0] : first[1];
+    double p[3];
+    for (const uint32_t eid : face.edges) {
+        const uint32_t* e_verts = complex->edges[eid].vertices.data();
+        vid = e_verts[0] == vid ? e_verts[1] : e_verts[0];
+        complex->vertices[vid]->to_double_approx(p);
+        bar[0] += p[0];
+        bar[1] += p[1];
+        bar[2] += p[2];
+    }
+    bar[0] /= static_cast<double>(face.edges.size());
+    bar[1] /= static_cast<double>(face.edges.size());
+    bar[2] /= static_cast<double>(face.edges.size());
+}
+
+inline bool is_baricenter_on_face(
+    const BSPComplex* complex, const BSPFace& face, const ExplicitPoint3D& face_center, const int xyz
+) {
+    const uint32_t* last = complex->edges[face.edges.back()].vertices.data();
+    const uint32_t* first = complex->edges[face.edges[0]].vertices.data();
+    uint32_t vid = first[0] == last[0] || first[0] == last[1] ? first[0] : first[1];
+    int base_ori = 0;
+    for (const uint32_t eid : face.edges) {
+        const uint32_t* e_verts = complex->edges[eid].vertices.data();
+        const uint32_t pvid = vid;
+        vid = e_verts[0] == vid ? e_verts[1] : e_verts[0];
+        const int ori = GenericPoint3D::orient2d(face_center, *complex->vertices[pvid], *complex->vertices[vid], xyz);
+        if (ori == 0) {
+            return false;
+        }
+        if (ori != base_ori) {
+            if (base_ori == 0) {
+                base_ori = ori;
+            } else {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// return 1 if point is on the boundary of the triangle, 2 if it is in the interior, 0 otherwise
+inline int localized_point_on_triangle(
+    const GenericPoint3D& p, const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, int xyz
+) {
+    int o1, o2, o3;
+    if (xyz == 2) {
+        o1 = GenericPoint3D::orient_xy(p, a, b);
+        o2 = GenericPoint3D::orient_xy(p, b, c);
+        o3 = GenericPoint3D::orient_xy(p, c, a);
+    } else if (xyz == 0) {
+        o1 = GenericPoint3D::orient_yz(p, a, b);
+        o2 = GenericPoint3D::orient_yz(p, b, c);
+        o3 = GenericPoint3D::orient_yz(p, c, a);
+    } else {
+        o1 = GenericPoint3D::orient_zx(p, a, b);
+        o2 = GenericPoint3D::orient_zx(p, b, c);
+        o3 = GenericPoint3D::orient_zx(p, c, a);
+    }
+    return ((o1 >= 0 && o2 >= 0 && o3 >= 0) || (o1 <= 0 && o2 <= 0 && o3 <= 0)) +
+           ((o1 > 0 && o2 > 0 && o3 > 0) || (o1 < 0 && o2 < 0 && o3 < 0));
+}
+
+inline bool coplanar_constraint_inner_intersects_face(
+    const BSPComplex* complex, const std::vector<uint32_t>& f_edges, const uint32_t* tri, int xyz
+) {
+    int mask = 0;
+    const uint32_t* last = complex->edges[f_edges.back()].vertices.data();
+    const uint32_t* first = complex->edges[f_edges[0]].vertices.data();
+    const uint32_t vid_0 = first[0] == last[0] || first[0] == last[1] ? first[0] : first[1];
+    for (int i = 0; i < 3; i++) {
+        uint32_t vid = vid_0;
+        for (const uint32_t eid : f_edges) {
+            const uint32_t* e_verts = complex->edges[eid].vertices.data();
+            vid = e_verts[0] == vid ? e_verts[1] : e_verts[0];
+            if (tri[i] == vid) {
+                mask |= (1 << i);
+                break;
+            }
+        }
+    }
+    if (mask == 7) return true;
+    /* todo */
+    return false;
+}
+
+inline FaceColor get_face_color(const BSPComplex* complex, const BSPFace& face, const int xyz) {
+    const uint32_t* last = complex->edges[face.edges.back()].vertices.data();
+    const uint32_t* first = complex->edges[face.edges[0]].vertices.data();
+    uint32_t vid = first[0] == last[0] || first[0] == last[1] ? first[0] : first[1];
+    const auto& vertices = complex->vertices;
+    for (const uint32_t eid : face.edges) {
+        const uint32_t* e_verts = complex->edges[eid].vertices.data();
+        vid = e_verts[0] == vid ? e_verts[1] : e_verts[0];
+        uint32_t out_from_all = 0;
+        for (const uint32_t cid : face.coplanar_constraints) {
+            const uint32_t* tri = &complex->constraints->triangles[cid * 3];
+            if (vid == tri[0] || vid == tri[1] || vid == tri[2]) {
+                break;
+            }
+            const int lpt = localized_point_on_triangle(
+                *vertices[vid], *vertices[tri[0]], *vertices[tri[1]], *vertices[tri[2]], xyz
+            );
+            if (lpt == 2) {
+                return FaceColor::BLACK;
+            } else if (lpt == 1) {
+                break;
+            } else {
+                out_from_all += 1;
+            }
+        }
+        if (out_from_all == face.coplanar_constraints.size()) {
+            return FaceColor::WHITE;
+        }
+    }
+
+    for (const uint32_t cid : face.coplanar_constraints) {
+        const uint32_t* tri = &complex->constraints->triangles[cid * 3];
+        if (coplanar_constraint_inner_intersects_face(complex, face.edges, tri, xyz)) {
+            return FaceColor::BLACK;
+        }
+    }
+
+    return FaceColor::WHITE;
+}
+
+void BSPComplex::decide_color() {
+    for (uint32_t fid = 0; fid < faces.size(); fid++) {
+        BSPFace& face = faces[fid];
+        if (face.color != FaceColor::GRAY) {
+            continue;
+        }
+        int xyz = face_normal_dominant_component(this, face);
+        double p[3];
+        face_baricenter_approx(this, face, p);
+        ExplicitPoint3D face_center(p[0], p[1], p[2]);
+        if (is_baricenter_on_face(this, face, face_center, xyz)) {
+            bool found = false;
+            for (const uint32_t cid : face.coplanar_constraints) {
+                const uint32_t* tri = &constraints->triangles[cid * 3];
+                const double* p0 = vertices[tri[0]]->to_explicit().ptr();
+                const double* p1 = vertices[tri[1]]->to_explicit().ptr();
+                const double* p2 = vertices[tri[2]]->to_explicit().ptr();
+                if (GenericPoint3D::point_in_triangle(p, p0, p1, p2)) {
+                    found = true;
+                    face.color = FaceColor::BLACK;
+                    break;
+                }
+            }
+            if (!found) {
+                face.color = FaceColor::WHITE;
+            }
+        } else {
+            face.color = get_face_color(this, face, xyz);
+        }
+    }
 }

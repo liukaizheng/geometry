@@ -4441,6 +4441,7 @@ bool GenericPoint3D::same_half_plane(const double* p, const double* q, const dou
     const double v2xz[] = {v2[0], v2[2]};
     return (GenericPoint2D::sign_orient2d(pxz, v1xz, v2xz) == GenericPoint2D::sign_orient2d(qxz, v1xz, v2xz));
 }
+
 bool GenericPoint3D::point_in_inner_segment(const double* p, const double* v1, const double* v2) {
     return (
         mis_alignment(p, v1, v2) == 0 &&
@@ -4449,6 +4450,7 @@ bool GenericPoint3D::point_in_inner_segment(const double* p, const double* v1, c
          (v1[2] < v2[2] && v1[2] < p[2] && p[2] < v2[2]) || (v1[2] > v2[2] && v1[2] > p[2] && p[2] > v2[2]))
     );
 }
+
 bool GenericPoint3D::point_in_segment(const double* p, const double* v1, const double* v2) {
     return same_point(p, v1) || same_point(p, v2) || point_in_inner_segment(p, v1, v2);
 }

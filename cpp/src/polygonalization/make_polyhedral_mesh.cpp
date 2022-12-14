@@ -22,4 +22,14 @@ void make_polyhedral_mesh_from_triangles(
     // clang-format on
     insert_constraints(mesh, constraints, tet_map.data());
     BSPComplex complex{mesh, &constraints, std::move(tet_map)};
+    
+    for (uint32_t cid = 0; cid < complex.cells.size();) {
+        if (complex.cells[cid].constraints.empty()) {
+            cid += 1;
+        } else {
+            complex.split_cell(cid);
+        }
+    }
+    
+    complex.decide_color();
 }
