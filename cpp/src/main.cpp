@@ -87,22 +87,22 @@ static void read_flow(
 }
 
 int main() {
-    const uint32_t n_nodes = 10000;
+    const uint32_t n_nodes = 1000;
     auto src = Eigen::VectorXd::Random(n_nodes).eval();
     auto sink = Eigen::VectorXd::Random(n_nodes).eval();
     auto cap = Eigen::MatrixXd::Random(n_nodes, n_nodes).eval();
-    std::vector<double> srcs_cap(n_nodes);
-    for (uint32_t i = 0; i < n_nodes; i++) {
+    std::vector<double> srcs_cap(n_nodes, 0);
+    for (uint32_t i = 0; i < 100; i++) {
         srcs_cap[i] = std::abs(std::round(src[i] * n_nodes));
     }
-    std::vector<double> sink_cap(n_nodes);
-    for (uint32_t i = 0; i < n_nodes; i++) {
-        sink_cap[i] = std::abs(std::round(sink[i] * n_nodes));
+    std::vector<double> sink_cap(n_nodes, 0);
+    for (uint32_t i = 0; i < 100; i++) {
+         sink_cap[n_nodes - 1 - i] = std::abs(std::round(sink[i] * n_nodes));
     }
     GraphCut g(n_nodes, srcs_cap.data(), sink_cap.data());
     for (uint32_t i = 0; i < n_nodes; i++) {
         for (uint32_t j = i + 1; j < n_nodes; j++) {
-            double val = std::abs(std::round(cap(i, j)));
+            double val = std::abs(std::round(cap(i, j) * n_nodes));
             g.add_edge(i, j, val, val);
         }
     }

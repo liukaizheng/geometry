@@ -1,7 +1,7 @@
 #include <graphcut/graphcut.h>
 
 GraphCut::GraphCut(const uint32_t n, const double* source_cap, const double* sink_cap)
-    : n_nodes(n), TERMINAL(n * 2), ORPHAN(TERMINAL + 1) {
+    : n_nodes(n), TERMINAL(INVALID - 1), ORPHAN(INVALID) {
     dist.resize(n, 1);
     is_sink.resize(n);
     next.resize(n, INVALID);
@@ -267,6 +267,7 @@ double GraphCut::max_flow() {
                         is_sink[j] = false;
                         parent[j] = a.sister;
                         ts[j] = ts[i];
+                        dist[j] = dist[i] + 1;
                         set_active(j);
                     } else if (is_sink[j]) {
                         break;
@@ -282,14 +283,16 @@ double GraphCut::max_flow() {
             aid = first_arc[i];
             while (aid != INVALID) {
                 const Arc& a = arcs[aid];
-                if (a.r_cap != 0.0) {
+                if (arcs[a.sister].r_cap != 0.0) {
                     const uint32_t j = a.head;
                     if (parent[j] == INVALID) {
                         is_sink[j] = true;
                         parent[j] = a.sister;
                         ts[j] = ts[i];
+                        dist[j] = dist[i] + 1;
                         set_active(j);
                     } else if (!is_sink[j]) {
+                        aid = a.sister;
                         break;
                     } else if (ts[j] <= ts[i] && dist[j] > dist[i]) {
                         parent[j] = a.sister;

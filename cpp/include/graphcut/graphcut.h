@@ -37,6 +37,9 @@ class GraphCut {
     GraphCut(const uint32_t n, const double* source_cap, const double* sink_cap);
 
     void set_active(const uint32_t i) {
+        if (next[i] != INVALID) {
+            return;
+        }
         if (queue_last[1] == INVALID) {
             queue_first[1] = i;
         } else {
