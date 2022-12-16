@@ -34,7 +34,7 @@ class GraphCut {
     std::vector<bool> is_sink;         // whether the node is in the source
 
   public:
-    GraphCut(const uint32_t n, double* source_cap, double* sink_cap);
+    GraphCut(const uint32_t n, const double* source_cap, const double* sink_cap);
 
     void set_active(const uint32_t i) {
         if (queue_last[1] == INVALID) {
@@ -69,13 +69,36 @@ class GraphCut {
             }
         }
     }
+    void set_orphan_front(const uint32_t i) {
+        parent[i] = ORPHAN;
+        next_orphan[i] = orphan_first;
+        orphan_first = i;
+    }
+    void set_orphan_rear(const uint32_t i) {
+        parent[i] = ORPHAN;
+        if (orphan_last != INVALID) {
+            next_orphan[orphan_last] = i;
+        } else {
+            orphan_first = i;
+        }
+        orphan_last = i;
+        next_orphan[i] = INVALID;
+    }
 
     void add_edge(const uint32_t i, const uint32_t j, const double cap, const double rev_cap) {
         const uint32_t arc_id = static_cast<uint32_t>(arcs.size());
         const uint32_t sisiter_arc_id = arc_id + 1;
         arcs.emplace_back(j, first_arc[i], sisiter_arc_id, cap); // arc
+        first_arc[i] = arc_id;
         arcs.emplace_back(i, first_arc[j], arc_id, rev_cap);     // sisiter arc
+        first_arc[j] = sisiter_arc_id;
     }
+    
+    void process_source_orphan(const uint32_t i);
+        
+    void process_sink_orphan(const uint32_t i);
+    
     void augment(Arc* minnle_arc);
+        
     double max_flow();
 };

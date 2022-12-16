@@ -10,6 +10,7 @@
 #include <predicates/predicates.h>
 #include <triangle/tetrahedron.h>
 #include <triangle/triangle.h>
+#include <graphcut/graphcut.h>
 #include <vector>
 
 extern "C" {
@@ -43,31 +44,92 @@ static void write_xyz(const std::string& name, const double* data, const uint32_
     file.close();
 }
 
-using SPMat = Eigen::SparseMatrix<double, Eigen::RowMajor>;
-using T = Eigen::Triplet<double>;
+static void read_flow(
+    std::vector<double>& src_cap, std::vector<double>& sink_cap,
+    std::vector<std::unordered_map<uint32_t, double>>& edges
+) {
+    uint32_t n_nodes = 498;
+    uint32_t s = 1, t = 500;
+    src_cap.resize(n_nodes, 0);
+    sink_cap.resize(n_nodes, 0);
+    edges.resize(n_nodes);
+    std::ifstream in("max_flow9.dat");
+    std::string str;
+    auto index = [&](const uint32_t i) -> uint32_t {
+        const uint32_t d = (i > s) + (i > t);
+        return i - d - 1;
+    };
+    while (std::getline(in, str)) {
+        std::stringstream ss(str);
+        std::string _s;
+        uint32_t r, c;
+        double val;
+        ss >> _s >> r >> c >> val;
 
-
-
-int main() {
-    std::vector<T> triples{{1, 0, 22.0}, {2, 0, 7.0}, {0, 1, 3.0},  {2, 1, 5.0},
-                           {4, 2, 14.0}, {2, 3, 2.0}, {1, 4, 17.0}, {4, 4, 8.0}};
-    const uint32_t n = 5;
-    SPMat m(n, n);
-    m.setFromTriplets(triples.begin(), triples.end());
-    m.coeffRef(0, 1) = 0.0;
-    m.prune(0.0);
-    for (int k = 0; k < m.outerSize(); ++k) {
-        std::cout << "k: " << k << "\n";
-        for (SPMat::InnerIterator it(m, k); it; ++it) {
-            it.value();
-            it.row();   // row index
-            it.col();   // col index (here it is equal to k)
-            it.index(); // inner index, here it is equal to it.row()
-            std::cout << "(" << it.row() << ", " << it.col() << "): " << it.value() << "\n";
+        if (r == t || c == s) {
+            continue;
+        } else if (r == s) {
+            src_cap[index(c)] = val;
+        } else if (c == t) {
+            sink_cap[index(r)] = val;
+        } else {
+            uint32_t a = index(r);
+            uint32_t b = index(c);
+            if (a > b) {
+                std::swap(a, b);
+            }
+            auto& map = edges[a];
+            if (map.find(b) == map.end()) {
+                map.emplace(b, val);
+            }
         }
     }
+}
+
+int main() {
+    const uint32_t n_nodes = 10000;
+    auto src = Eigen::VectorXd::Random(n_nodes).eval();
+    auto sink = Eigen::VectorXd::Random(n_nodes).eval();
+    auto cap = Eigen::MatrixXd::Random(n_nodes, n_nodes).eval();
+    std::vector<double> srcs_cap(n_nodes);
+    for (uint32_t i = 0; i < n_nodes; i++) {
+        srcs_cap[i] = std::abs(std::round(src[i] * n_nodes));
+    }
+    std::vector<double> sink_cap(n_nodes);
+    for (uint32_t i = 0; i < n_nodes; i++) {
+        sink_cap[i] = std::abs(std::round(sink[i] * n_nodes));
+    }
+    GraphCut g(n_nodes, srcs_cap.data(), sink_cap.data());
+    for (uint32_t i = 0; i < n_nodes; i++) {
+        for (uint32_t j = i + 1; j < n_nodes; j++) {
+            double val = std::abs(std::round(cap(i, j)));
+            g.add_edge(i, j, val, val);
+        }
+    }
+    
+    double flow = g.max_flow();
     return 0;
 }
+
+/*int main() {
+
+    // std::vector<double> srcs_cap{0, 2};
+    // std::vector<double> sink_cap{4, 7};
+    // GraphCut g(2, srcs_cap.data(), sink_cap.data());
+    // g.add_edge(0, 1, 5, 4);
+    // const double flow = g.max_flow();
+    std::vector<double> srcs_cap, sink_cap;
+    std::vector<std::unordered_map<uint32_t, double>> edges;
+    read_flow(srcs_cap, sink_cap, edges);
+    GraphCut g(sink_cap.size(), srcs_cap.data(), sink_cap.data());
+    for (uint32_t a = 0; a < edges.size(); a++) {
+        for (const auto& pair : edges[a]) {
+            g.add_edge(a, pair.first, pair.second, pair.second);
+        }
+    }
+    const double flow = g.max_flow();
+    return 0;
+}*/
 
 /*int main() {
     exactinit();
