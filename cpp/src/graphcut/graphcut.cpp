@@ -1,7 +1,7 @@
 #include <graphcut/graphcut.h>
 
 GraphCut::GraphCut(const uint32_t n, const double* source_cap, const double* sink_cap)
-    : n_nodes(n), TERMINAL(INVALID - 1), ORPHAN(INVALID) {
+    : n_nodes(n), TERMINAL(INVALID - 2), ORPHAN(INVALID - 1) {
     dist.resize(n, 1);
     is_sink.resize(n);
     next.resize(n, INVALID);

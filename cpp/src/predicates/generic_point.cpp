@@ -4019,7 +4019,7 @@ inline int orient_yz_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
         if ((ret = orient_xy_iii_interval(
                  a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.dfilter[1],
                  c.dfilter[2], c.dfilter[3]
-             )) != 0.0)
+             )) != 0)
             return ret;
     }
 
@@ -4040,7 +4040,7 @@ inline int orient_zx_ttt(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
         if ((ret = orient_xy_iii_interval(
                  a.dfilter[2], a.dfilter[0], a.dfilter[3], b.dfilter[2], b.dfilter[0], b.dfilter[3], c.dfilter[2],
                  c.dfilter[0], c.dfilter[3]
-             )) != 0.0)
+             )) != 0)
             return ret;
     }
 
@@ -4252,6 +4252,579 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
         return IPSign::UNDEFINED;
     }
 }
+
+inline int less_than_le_filtered(const double& l1x, const double& d1, double max_var, const double& bx) {
+    double dbx = bx * d1;
+    double kx = l1x - dbx;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(bx)) > max_var) max_var = _tmp_fabs;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= 1.932297637868842e-14;
+    if (kx > epsilon) return IPSign::POSITIVE;
+    if (-kx > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int less_than_xe_interval(const IntervalNumber& l1x, const IntervalNumber& d1, const IntervalNumber& bx) {
+    IntervalNumber dbx(bx * d1);
+    IntervalNumber kx(l1x - dbx);
+    if (!kx.signIsReliable()) return IPSign::ZERO;
+    return kx.sign();
+}
+
+inline int less_than_xe_exact(
+    const std::vector<double>& l1x, const int l1x_len, const std::vector<double>& d1, const int d1_len, const double bx
+) {
+    std::vector<double> dbx(128);
+    int dbx_len = scale_expansion_zeroelim(d1_len, d1.data(), bx, dbx.data());
+    std::vector<double> kx(128);
+    int kx_len = fast_expansion_diff_zeroelim(l1x_len, l1x.data(), dbx_len, dbx.data(), kx.data());
+
+    const double return_value = kx.data()[kx_len - 1];
+    if (return_value > 0) return IPSign::POSITIVE;
+    if (return_value < 0) return IPSign::NEGATIVE;
+    if (return_value == 0.0) return IPSign::ZERO;
+    return IPSign::UNDEFINED;
+}
+
+inline int less_than_on_x_le(const ImplicitPointLPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_le_filtered(a.ssfilter[0], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[0], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(lx, lxl, d, dl, b);
+}
+
+inline int less_than_on_y_le(const ImplicitPointLPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_le_filtered(a.ssfilter[1], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[1], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(ly, lyl, d, dl, b);
+}
+
+inline int less_than_on_z_le(const ImplicitPointLPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_le_filtered(a.ssfilter[2], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[2], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(lz, lzl, d, dl, b);
+}
+
+inline int less_than_te_filtered(const double& l1x, const double& d1, double max_var, const double& bx) {
+    double dbx = bx * d1;
+    double kx = l1x - dbx;
+
+    double _tmp_fabs;
+    if ((_tmp_fabs = fabs(bx)) > max_var) max_var = _tmp_fabs;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= 3.980270973924514e-13;
+    if (kx > epsilon) return IPSign::POSITIVE;
+    if (-kx > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int less_than_on_x_te(const ImplicitPointTPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_te_filtered(a.ssfilter[0], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[0], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(lx, lxl, d, dl, b);
+}
+
+inline int less_than_on_y_te(const ImplicitPointTPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_te_filtered(a.ssfilter[1], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[1], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(ly, lyl, d, dl, b);
+}
+
+inline int less_than_on_z_te(const ImplicitPointTPI& a, const double& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv)) {
+        if ((ret = less_than_te_filtered(a.ssfilter[2], a.ssfilter[3], mv, b)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda()) {
+        if ((ret = less_than_xe_interval(a.dfilter[2], a.dfilter[3], b)) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> lx, ly, lz, d;
+    int lxl, lyl, lzl, dl;
+    a.get_exact_lambda(lx, lxl, ly, lyl, lz, lzl, d, dl);
+    if (d.data()[dl - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xe_exact(lz, lzl, d, dl, b);
+}
+
+inline int
+less_than_ll_filtered(const double& l1x, const double& d1, const double& l2x, const double& d2, double max_var) {
+    double k1 = d2 * l1x;
+    double k2 = d1 * l2x;
+    double kx = k1 - k2;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= 2.922887626377607e-13;
+    if (kx > epsilon) return IPSign::POSITIVE;
+    if (-kx > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int less_than_xx_interval(
+    const IntervalNumber& l1x, const IntervalNumber& d1, const IntervalNumber& l2x, const IntervalNumber& d2
+) {
+    IntervalNumber k1(d2 * l1x);
+    IntervalNumber k2(d1 * l2x);
+    IntervalNumber kx(k1 - k2);
+    if (!kx.signIsReliable()) return IPSign::ZERO;
+    return kx.sign();
+}
+
+inline int less_than_xx_exact(
+    const std::vector<double>& l1x, const int l1x_len, const std::vector<double>& d1, const int d1_len,
+    const std::vector<double>& l2x, const int l2x_len, const std::vector<double>& d2, const int d2_len
+) {
+    std::vector<double> k1(128);
+    int k1_len = product_expansion_zeroelim(d2_len, d2.data(), l1x_len, l1x.data(), k1.data());
+    std::vector<double> k2(128);
+    int k2_len = product_expansion_zeroelim(d1_len, d1.data(), l2x_len, l2x.data(), k2.data());
+    std::vector<double> kx(128);
+    int kx_len = fast_expansion_diff_zeroelim(k1_len, k1.data(), k2_len, k2.data(), kx.data());
+    const double return_value = kx.data()[kx_len - 1];
+    if (return_value > 0.0) {
+        return IPSign::POSITIVE;
+    } else if (return_value < 0.0) {
+        return IPSign::NEGATIVE;
+    } else {
+        return IPSign::ZERO;
+    }
+}
+
+inline int less_than_on_x_ll(const ImplicitPointLPI& a, const ImplicitPointLPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_ll_filtered(a.ssfilter[0], a.ssfilter[3], b.ssfilter[0], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[0], a.dfilter[3], b.dfilter[0], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1x, l1xl, d1, d1l, l2x, l2xl, d2, d2l);
+}
+
+inline int less_than_on_y_ll(const ImplicitPointLPI& a, const ImplicitPointLPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_ll_filtered(a.ssfilter[1], a.ssfilter[3], b.ssfilter[1], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[1], a.dfilter[3], b.dfilter[1], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1y, l1yl, d1, d1l, l2y, l2yl, d2, d2l);
+}
+
+inline int less_than_on_z_ll(const ImplicitPointLPI& a, const ImplicitPointLPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_ll_filtered(a.ssfilter[2], a.ssfilter[3], b.ssfilter[2], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[2], a.dfilter[3], b.dfilter[2], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1z, l1zl, d1, d1l, l2z, l2zl, d2, d2l);
+}
+
+inline int
+less_than_lt_filtered(const double& l1x, const double& d1, const double& l2x, const double& d2, double max_var) {
+    double k1 = d2 * l1x;
+    double k2 = d1 * l2x;
+    double kx = k1 - k2;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= 4.321380059346694e-12;
+    if (kx > epsilon) return IPSign::POSITIVE;
+    if (-kx > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int less_than_on_x_lt(const ImplicitPointLPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_lt_filtered(a.ssfilter[0], a.ssfilter[3], b.ssfilter[0], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[0], a.dfilter[3], b.dfilter[0], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1x, l1xl, d1, d1l, l2x, l2xl, d2, d2l);
+}
+
+inline int less_than_on_y_lt(const ImplicitPointLPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_lt_filtered(a.ssfilter[1], a.ssfilter[3], b.ssfilter[1], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[1], a.dfilter[3], b.dfilter[1], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1y, l1yl, d1, d1l, l2y, l2yl, d2, d2l);
+}
+
+inline int less_than_on_z_lt(const ImplicitPointLPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_lt_filtered(a.ssfilter[2], a.ssfilter[3], b.ssfilter[2], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[2], a.dfilter[3], b.dfilter[2], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1z, l1zl, d1, d1l, l2z, l2zl, d2, d2l);
+}
+
+inline int
+less_than_tt_filtered(const double& l1x, const double& d1, const double& l2x, const double& d2, double max_var) {
+    double k1 = d2 * l1x;
+    double k2 = d1 * l2x;
+    double kx = k1 - k2;
+    double epsilon = max_var;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= epsilon;
+    epsilon *= max_var;
+    epsilon *= max_var;
+    epsilon *= 4.321380059346694e-12;
+    if (kx > epsilon) return IPSign::POSITIVE;
+    if (-kx > epsilon) return IPSign::NEGATIVE;
+    return IPSign::ZERO;
+}
+
+inline int less_than_on_x_tt(const ImplicitPointTPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_tt_filtered(a.ssfilter[0], a.ssfilter[3], b.ssfilter[0], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[0], a.dfilter[3], b.dfilter[0], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1x, l1xl, d1, d1l, l2x, l2xl, d2, d2l);
+}
+
+inline int less_than_on_y_tt(const ImplicitPointTPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_tt_filtered(a.ssfilter[1], a.ssfilter[3], b.ssfilter[1], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[1], a.dfilter[3], b.dfilter[1], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1y, l1yl, d1, d1l, l2y, l2yl, d2, d2l);
+}
+
+inline int less_than_on_z_tt(const ImplicitPointTPI& a, const ImplicitPointTPI& b) {
+    double mv = 0.0;
+    int ret;
+    if (a.get_filtered_lambda(mv) && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_tt_filtered(a.ssfilter[2], a.ssfilter[3], b.ssfilter[2], b.ssfilter[3], mv)) != 0) {
+            return ret;
+        }
+    }
+    if (a.get_interval_lambda() && b.get_filtered_lambda(mv)) {
+        if ((ret = less_than_xx_interval(a.dfilter[2], a.dfilter[3], b.dfilter[2], b.dfilter[3])) != 0) {
+            return ret;
+        }
+    }
+    std::vector<double> l1x, l1y, l1z, d1;
+    int l1xl, l1yl, l1zl, d1l;
+    std::vector<double> l2x, l2y, l2z, d2;
+    int l2xl, l2yl, l2zl, d2l;
+    a.get_exact_lambda(l1x, l1xl, l1y, l1yl, l1z, l1zl, d1, d1l);
+    b.get_exact_lambda(l2x, l2xl, l2y, l2yl, l2z, l2zl, d2, d2l);
+    if (d1.data()[d1l - 1] == 0.0 || d2.data()[d2l - 1] == 0.0) {
+        return IPSign::UNDEFINED;
+    }
+    return less_than_xx_exact(l1z, l1zl, d1, d1l, l2z, l2zl, d2, d2l);
+}
+
+
+int GenericPoint3D::less_than_on_x(const GenericPoint3D& a, const GenericPoint3D& b) {
+    int type = a.get_type() * 3 + b.get_type();
+    switch (type) {
+    case 0:
+        return (a.to_explicit().x > b.to_explicit().x) - (a.to_explicit().x < b.to_explicit().x);
+    case 1: // EL
+        return -less_than_on_x_le(b.to_lpi(), a.to_explicit().x);
+    case 2: // ET
+        return -less_than_on_x_te(b.to_tpi(), a.to_explicit().x);
+    case 3: // LE
+        return less_than_on_x_le(a.to_lpi(), b.to_explicit().x);
+    case 4: // LL
+        return less_than_on_x_ll(a.to_lpi(), b.to_lpi());
+    case 5: // LT
+        return less_than_on_x_lt(a.to_lpi(), b.to_tpi());
+    case 6: // TE
+        return less_than_on_x_te(a.to_tpi(), b.to_explicit().x);
+    case 7: // TL
+        return -less_than_on_x_lt(b.to_lpi(), a.to_tpi());
+    case 8: // TT
+        return less_than_on_x_tt(a.to_tpi(), b.to_tpi());
+    default:
+        return IPSign::UNDEFINED;
+    }
+}
+
+int GenericPoint3D::less_than_on_y(const GenericPoint3D& a, const GenericPoint3D& b) {
+    int type = a.get_type() * 3 + b.get_type();
+    switch (type) {
+    case 0:
+        return (a.to_explicit().y > b.to_explicit().y) - (a.to_explicit().y < b.to_explicit().y);
+    case 1: // EL
+        return -less_than_on_y_le(b.to_lpi(), a.to_explicit().y);
+    case 2: // ET
+        return -less_than_on_y_te(b.to_tpi(), a.to_explicit().y);
+    case 3: // LE
+        return less_than_on_y_le(a.to_lpi(), b.to_explicit().y);
+    case 4: // LL
+        return less_than_on_y_ll(a.to_lpi(), b.to_lpi());
+    case 5: // LT
+        return less_than_on_y_lt(a.to_lpi(), b.to_tpi());
+    case 6: // TE
+        return less_than_on_y_te(a.to_tpi(), b.to_explicit().y);
+    case 7: // TL
+        return -less_than_on_y_lt(b.to_lpi(), a.to_tpi());
+    case 8: // TT
+        return less_than_on_y_tt(a.to_tpi(), b.to_tpi());
+    default:
+        return IPSign::UNDEFINED;
+    }
+}
+
+int GenericPoint3D::less_than_on_z(const GenericPoint3D& a, const GenericPoint3D& b) {
+    int type = a.get_type() * 3 + b.get_type();
+    switch (type) {
+    case 0:
+        return (a.to_explicit().z > b.to_explicit().z) - (a.to_explicit().z < b.to_explicit().z);
+    case 1: // EL
+        return -less_than_on_z_le(b.to_lpi(), a.to_explicit().z);
+    case 2: // ET
+        return -less_than_on_z_te(b.to_tpi(), a.to_explicit().z);
+    case 3: // LE
+        return less_than_on_z_le(a.to_lpi(), b.to_explicit().z);
+    case 4: // LL
+        return less_than_on_z_ll(a.to_lpi(), b.to_lpi());
+    case 5: // LT
+        return less_than_on_z_lt(a.to_lpi(), b.to_tpi());
+    case 6: // TE
+        return less_than_on_z_te(a.to_tpi(), b.to_explicit().z);
+    case 7: // TL
+        return -less_than_on_z_lt(b.to_lpi(), a.to_tpi());
+    case 8: // TT
+        return less_than_on_z_tt(a.to_tpi(), b.to_tpi());
+    default:
+        return IPSign::UNDEFINED;
+    }
+}
+
 int GenericPoint3D::orient2d(
     const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const int n_max
 ) {

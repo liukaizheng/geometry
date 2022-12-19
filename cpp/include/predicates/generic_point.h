@@ -121,6 +121,10 @@ class GenericPoint3D {
     static int orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     static int orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c);
     
+    static int less_than_on_x(const GenericPoint3D& a, const GenericPoint3D& b);
+    static int less_than_on_y(const GenericPoint3D& a, const GenericPoint3D& b);
+    static int less_than_on_z(const GenericPoint3D& a, const GenericPoint3D& b);
+    
     static int orient2d(const GenericPoint3D& a, const GenericPoint3D& b, const GenericPoint3D& c, const int n_max);
 
     static int max_component_at_triangle_normal(const double* v1, const double* v2, const double* v3);
