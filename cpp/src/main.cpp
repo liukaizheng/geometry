@@ -35,6 +35,21 @@ static void writeOBJ(
     file.close();
 }
 
+static void writePolygon(const std::string& name, const double* data, const uint32_t n_points, const uint32_t* indices, const uint32_t* seperator, const uint32_t n_polygon) {
+    std::ofstream file(name);
+    for (uint32_t i = 0; i < n_points; i++) {
+        file << "v " << data[3 * i] << " " << data[3 * i + 1] << " " << data[3 * i + 2] << "\n";
+    }
+    for (uint32_t i = 0; i < n_polygon; i++) {
+        file << "f";
+        for (uint32_t j = seperator[i]; j < seperator[i + 1]; j++) {
+            file << " " << indices[j] + 1;
+        }
+        file << "\n";
+    }
+    file.close();
+}
+
 static void write_xyz(const std::string& name, const double* data, const uint32_t n_points) {
     std::ofstream file(name);
     for (uint32_t i = 0; i < n_points; i++) {
@@ -142,6 +157,9 @@ int main() {
     };
     std::vector<uint32_t> indices{0, 3, 2, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5,
                                   2, 2, 5, 1, 1, 4, 0, 1, 5, 4, 4, 5, 6, 4, 6, 7};
-    make_polyhedral_mesh_from_triangles(points.data(), n_points, indices.data(), 11);
+    std::vector<double> out_points;
+    std::vector<uint32_t> out_faces, seperator;
+    make_polyhedral_mesh_from_triangles(points.data(), n_points, indices.data(), 11, out_points, out_faces, seperator);
+    writePolygon("123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(), seperator.size() - 1);
     return 0;
 }

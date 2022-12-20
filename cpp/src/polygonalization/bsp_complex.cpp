@@ -1,11 +1,13 @@
+#include <graphcut/graphcut.h>
 #include <iterator>
 #include <polygonalization/bsp_complex.h>
-#include <graphcut/graphcut.h>
 
 #include <Eigen/Dense>
 
 #include <algorithm>
 #include <numeric>
+#include <queue>
+#include <tuple>
 #include <unordered_map>
 
 inline uint32_t remove_ghost_tets(const TetMesh& mesh, std::vector<uint32_t>& new_order) {
@@ -385,7 +387,7 @@ inline void split_edge(BSPComplex* complex, const uint32_t eid, const uint32_t c
     }
 }
 
-inline void face_vertices(BSPComplex* complex, const BSPFace& face, std::vector<uint32_t>& vertices) {
+inline void face_vertices(const BSPComplex* complex, const BSPFace& face, std::vector<uint32_t>& vertices) {
     vertices.reserve(face.edges.size());
     const uint32_t* first = complex->edges[face.edges[0]].vertices.data();
     const uint32_t* last = complex->edges[face.edges.back()].vertices.data();
@@ -396,8 +398,8 @@ inline void face_vertices(BSPComplex* complex, const BSPFace& face, std::vector<
         vertices.emplace_back(first[1]);
         vertices.emplace_back(first[0]);
     }
-    for (uint32_t i = 1; i < face.edges.size(); i++) {
-        const BSPEdge& edge = complex->edges[face.edges[i]];
+    for (uint32_t i = 2; i < face.edges.size(); i++) {
+        const BSPEdge& edge = complex->edges[face.edges[i - 1]];
         if (edge.vertices[0] == vertices.back()) {
             vertices.emplace_back(edge.vertices[1]);
         } else {
@@ -968,7 +970,7 @@ void BSPComplex::decide_color() {
     }
 }
 
-bool is_first_cell_below_face(BSPComplex* complex, const BSPFace& face) {
+inline bool is_first_cell_below_face(BSPComplex* complex, const BSPFace& face) {
     const uint32_t* tri = &complex->constraints->triangles[face.coplanar_constraints[0] * 3];
     const GenericPoint3D* pv1 = complex->vertices[tri[0]];
     const GenericPoint3D* pv2 = complex->vertices[tri[1]];
@@ -1010,7 +1012,7 @@ void BSPComplex::complex_partition() {
         face_verts.clear();
         face_vertices(this, face, face_verts);
         const auto tv0 = Vec3(&approx_coords[face_verts[0] * 3]);
-        
+
         double area = 0.0;
         for (uint32_t i = 2; i < face_verts.size(); i++) {
             const auto tv1 = Vec3(&approx_coords[face_verts[i - 1] * 3]);
@@ -1030,7 +1032,7 @@ void BSPComplex::complex_partition() {
     for (uint32_t i = 0; i < faces.size(); i++) {
         face_areas[i] /= total_area;
     }
-    
+
     std::vector<uint8_t> evs(edges.size(), 0);
     for (const BSPFace& f : faces) {
         if (f.color == FaceColor::BLACK) {
@@ -1041,7 +1043,7 @@ void BSPComplex::complex_partition() {
             }
         }
     }
-    
+
     // vvs == 1 if vertex is on boundary of skin
     std::vector<uint8_t> vvs(vertices.size(), 0);
     for (uint32_t i = 0; i < edges.size(); i++) {
@@ -1069,9 +1071,11 @@ void BSPComplex::complex_partition() {
             }
         }
     }
-    
+
     cell_costs_internal[cells.size()] = 1.0;
-    GraphCut g(static_cast<uint32_t>(cell_costs_external.size()), cell_costs_external.data(), cell_costs_internal.data());
+    GraphCut g(
+        static_cast<uint32_t>(cell_costs_external.size()), cell_costs_external.data(), cell_costs_internal.data()
+    );
     constexpr double w = 0.1;
     for (uint32_t i = 0; i < faces.size(); i++) {
         BSPFace& face = faces[i];
@@ -1099,5 +1103,149 @@ void BSPComplex::complex_partition() {
     g.max_flow();
     for (uint32_t i = 0; i < cells.size(); i++) {
         cells[i].place = !g.is_sink[i];
+    }
+}
+
+void BSPComplex::extract_skin(
+    std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<uint32_t>& seperator
+) {
+    std::vector<uint32_t> kept;                                               // kept faces
+    std::vector<std::vector<std::pair<uint32_t, bool>>> ef_map(edges.size()); // pair: <fid, reversed>
+    std::vector<std::vector<std::pair<uint32_t, bool>>> fe_map(faces.size()); // pair: <eid, reversed>
+    for (uint32_t i = 0; i < faces.size(); i++) {
+        const BSPFace& face = faces[i];
+        if (face.cells[1] == TriFace::INVALID ? cells[face.cells[0]].place == 0
+                                              : cells[face.cells[0]].place == cells[face.cells[1]].place) {
+            continue;
+        }
+        kept.emplace_back(i);
+        const uint32_t* last = edges[face.edges.back()].vertices.data();
+        const uint32_t* first = edges[face.edges[0]].vertices.data();
+        uint32_t pvid = (first[0] == last[0] || first[0] == last[1]) ? first[0] : first[1];
+        for (uint32_t j = 0; j < face.edges.size(); j++) {
+            const uint32_t eid = face.edges[j];
+            if (edge_visit[eid] == 0) {
+                edge_visit[eid] = 1;
+                vert_visit[edges[eid].vertices[0]] = 1;
+                vert_visit[edges[eid].vertices[1]] = 1;
+            }
+            if (edges[eid].vertices[0] == pvid) {
+                ef_map[eid].emplace_back(i, false);
+                fe_map[i].emplace_back(eid, false);
+                pvid = edges[eid].vertices[1];
+            } else {
+                ef_map[eid].emplace_back(i, true);
+                fe_map[i].emplace_back(eid, true);
+                pvid = edges[eid].vertices[0];
+            }
+        }
+    }
+
+    const uint32_t n_points = static_cast<uint32_t>(std::count(vert_visit.begin(), vert_visit.end(), 1));
+    out_points.resize(n_points * 3);
+    std::vector<uint32_t> pmap(vertices.size());
+    uint32_t count = 0;
+    for (uint32_t i = 0; i < vertices.size(); i++) {
+        if (vert_visit[i] == 0) {
+            continue;
+        }
+        double* p = &out_points[count * 3];
+        pmap[i] = count++;
+        vertices[i]->to_double(p);
+    }
+    std::fill(vert_visit.begin(), vert_visit.end(), 0);
+    std::fill(edge_visit.begin(), edge_visit.end(), 0);
+
+    out_faces.reserve(kept.size() * 3);
+    seperator.reserve(kept.size() + 1);
+    seperator.emplace_back(0);
+    std::vector<bool> face_visit(faces.size(), false);
+    std::vector<uint32_t> face_verts;
+    for (const uint32_t fid : kept) {
+        if (face_visit[fid]) {
+            continue;
+        }
+        face_verts.clear();
+        const auto& face = faces[fid];
+        face_vertices(this, face, face_verts);
+        const int xyz = GenericPoint3D::max_component_at_triangle_normal(
+            vertices[face.mesh_vertices[0]]->to_explicit().ptr(), vertices[face.mesh_vertices[1]]->to_explicit().ptr(),
+            vertices[face.mesh_vertices[2]]->to_explicit().ptr()
+        );
+        const GenericPoint3D* p0 = vertices[face_verts[0]];
+        const GenericPoint3D* p1 = vertices[face_verts[1]];
+        const GenericPoint3D* p2 = nullptr;
+        for (uint32_t i = 2; i < face_verts.size(); i++) {
+            const GenericPoint3D* p = vertices[face_verts[i]];
+            if (GenericPoint3D::orient2d(*p0, *p1, *p, xyz) != 0) {
+                p2 = p;
+                break;
+            }
+        }
+
+        for (const uint32_t vid : face_verts) {
+            vert_visit[vid] = 1;
+        }
+        const uint32_t inner_cid = cells[face.cells[0]].place == 1 ? face.cells[0] : face.cells[1];
+        int ori = 0;
+        for (const uint32_t f : cells[inner_cid].faces) {
+            if (f == fid) {
+                continue;
+            }
+            std::vector<uint32_t> tmp_face_verts;
+            face_vertices(this, faces[f], tmp_face_verts);
+            for (const uint32_t vid : tmp_face_verts) {
+                if (vert_visit[vid] == 1) {
+                    continue;
+                }
+                ori = GenericPoint3D::orient3d(*p0, *p1, *p2, *vertices[vid]);
+                if (ori != 0) {
+                    break;
+                }
+            }
+            if (ori != 0) {
+                break;
+            }
+        }
+        for (const uint32_t vid : face_verts) {
+            vert_visit[vid] = 0;
+        }
+        std::queue<std::pair<uint32_t, bool>> queue; // <face, reversed>
+
+        const auto push_queue = [&queue, &face_visit, &face_verts, &pmap, &seperator,
+                                 &out_faces](const uint32_t fi, bool reversed) {
+            queue.emplace(fi, reversed);
+            face_visit[fi] = true;
+            if (reversed) {
+                std::reverse(face_verts.begin(), face_verts.end());
+            }
+            seperator.emplace_back(seperator.back() + static_cast<uint32_t>(face_verts.size()));
+            for (const uint32_t vid : face_verts) {
+                out_faces.emplace_back(pmap[vid]);
+            }
+        };
+        // assert( ori != 0);
+        push_queue(fid, ori < 0);
+        while (!queue.empty()) {
+            uint32_t fi;
+            bool f_rev;
+            std::tie(fi, f_rev) = queue.front();
+            queue.pop();
+            for (const auto& e_pair : fe_map[fi]) {
+                uint32_t eid = e_pair.first;
+                const bool e_rev = f_rev ^ e_pair.second;
+                uint32_t nfi;
+                bool nrev;
+                for (const auto& f_pair : ef_map[eid]) {
+                    std::tie(nfi, nrev) = f_pair;
+                    if (face_visit[nfi]) {
+                        continue;
+                    }
+                    face_verts.clear();
+                    face_vertices(this, faces[nfi], face_verts);
+                    push_queue(nfi, e_rev == nrev);
+                }
+            }
+        }
     }
 }
