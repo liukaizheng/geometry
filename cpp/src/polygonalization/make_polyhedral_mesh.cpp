@@ -32,4 +32,5 @@ void make_polyhedral_mesh_from_triangles(
     }
     
     complex.decide_color();
+    complex.complex_partition();
 }

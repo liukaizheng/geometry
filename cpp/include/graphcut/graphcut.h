@@ -31,9 +31,10 @@ class GraphCut {
     std::vector<uint32_t> next_orphan; // next orphan node
     std::vector<uint32_t> parent;      // parent arcs of nodes
     std::vector<uint32_t> ts;          // time stamp showing when dist was computed
-    std::vector<bool> is_sink;         // whether the node is in the source
 
   public:
+    std::vector<bool> is_sink;         // whether the node is in the source
+        
     GraphCut(const uint32_t n, const double* source_cap, const double* sink_cap);
 
     void set_active(const uint32_t i) {

@@ -58,12 +58,13 @@ struct BSPFace {
 
     BSPFace() {}
     BSPFace(const uint32_t* verts, const uint32_t cell_ind, const uint32_t adj_cell_ind)
-        : cells{cell_ind, adj_cell_ind}, mesh_vertices{verts[0], verts[1], verts[1]} {}
+        : cells{cell_ind, adj_cell_ind}, mesh_vertices{verts[0], verts[1], verts[2]} {}
 };
 
 struct BSPCell {
     std::vector<uint32_t> faces;
     std::vector<uint32_t> constraints;
+    uint8_t place = 0; // 0 out, 1 in
     
     BSPCell() {}
     
@@ -97,4 +98,5 @@ struct BSPComplex {
 
     void split_cell(const uint32_t cid);
     void decide_color();
+    void complex_partition();
 };

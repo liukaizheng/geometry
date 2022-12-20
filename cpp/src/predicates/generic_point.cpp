@@ -4189,7 +4189,7 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
     case 0: {
         const ExplicitPoint3D& pa = a.to_explicit();
         const ExplicitPoint3D& pb = b.to_explicit();
-        const ExplicitPoint3D& pc = b.to_explicit();
+        const ExplicitPoint3D& pc = c.to_explicit();
         const double aptr[2] = {pa.z, pa.x};
         const double bptr[2] = {pb.z, pb.x};
         const double cptr[2] = {pc.z, pc.x};
@@ -5024,6 +5024,35 @@ bool GenericPoint3D::point_in_inner_segment(const double* p, const double* v1, c
     );
 }
 
+bool GenericPoint3D::point_in_inner_segment(
+    const GenericPoint3D& p, const GenericPoint3D& v1, const GenericPoint3D& v2, int xyz
+) {
+    int lt2, lt3;
+    if (xyz == 0) {
+        if (orient_yz(p, v1, v2)) return false;
+        lt2 = less_than_on_y(v1, p);
+        lt3 = less_than_on_y(p, v2);
+        if (lt2) return (lt2 == lt3);
+        lt2 = less_than_on_z(v1, p);
+        lt3 = less_than_on_z(p, v2);
+    } else if (xyz == 1) {
+        if (orient_zx(p, v1, v2)) return false;
+        lt2 = less_than_on_x(v1, p);
+        lt3 = less_than_on_x(p, v2);
+        if (lt2) return (lt2 == lt3);
+        lt2 = less_than_on_z(v1, p);
+        lt3 = less_than_on_z(p, v2);
+    } else {
+        if (orient_xy(p, v1, v2)) return false;
+        lt2 = less_than_on_x(v1, p);
+        lt3 = less_than_on_x(p, v2);
+        if (lt2) return (lt2 == lt3);
+        lt2 = less_than_on_y(v1, p);
+        lt3 = less_than_on_y(p, v2);
+    }
+    return (lt2 && (lt2 == lt3));
+}
+
 bool GenericPoint3D::point_in_segment(const double* p, const double* v1, const double* v2) {
     return same_point(p, v1) || same_point(p, v2) || point_in_inner_segment(p, v1, v2);
 }
@@ -5119,6 +5148,31 @@ bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, co
     if (::orient2d(v1xz, v2xz, u2xz) != 0.) return true;
 
     return false;
+}
+
+bool GenericPoint3D::inner_segments_cross(
+    const GenericPoint3D& u1, const GenericPoint3D& u2, const GenericPoint3D& v1, const GenericPoint3D& v2, const int xyz
+) {
+    int o11, o12, o21, o22;
+
+    if (xyz == 2) {
+        o11 = orient_xy(v1, u1, u2);
+        o12 = orient_xy(v2, u2, u1);
+        o21 = orient_xy(u1, v1, v2);
+        o22 = orient_xy(u2, v2, v1);
+    } else if (xyz == 0) {
+        o11 = orient_yz(v1, u1, u2);
+        o12 = orient_yz(v2, u2, u1);
+        o21 = orient_yz(u1, v1, v2);
+        o22 = orient_yz(u2, v2, v1);
+    } else {
+        o11 = orient_zx(v1, u1, u2);
+        o12 = orient_zx(v2, u2, u1);
+        o21 = orient_zx(u1, v1, v2);
+        o22 = orient_zx(u2, v2, v1);
+    }
+
+    return ((o11 || o21 || o12 || o22) && o11 == o12 && o21 == o22);
 }
 
 inline bool lambda3d_LPI_filtered(

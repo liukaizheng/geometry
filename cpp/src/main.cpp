@@ -2,6 +2,7 @@
 #include <Eigen/Sparse>
 #include <chrono>
 #include <fstream>
+#include <graphcut/graphcut.h>
 #include <iostream>
 #include <numeric>
 #include <polygonalization/make_polyhedral_mesh.h>
@@ -10,7 +11,6 @@
 #include <predicates/predicates.h>
 #include <triangle/tetrahedron.h>
 #include <triangle/triangle.h>
-#include <graphcut/graphcut.h>
 #include <vector>
 
 extern "C" {
@@ -86,7 +86,7 @@ static void read_flow(
     }
 }
 
-int main() {
+/* int main() {
     const uint32_t n_nodes = 1000;
     auto src = Eigen::VectorXd::Random(n_nodes).eval();
     auto sink = Eigen::VectorXd::Random(n_nodes).eval();
@@ -106,10 +106,10 @@ int main() {
             g.add_edge(i, j, val, val);
         }
     }
-    
+
     double flow = g.max_flow();
     return 0;
-}
+}*/
 
 /*int main() {
 
@@ -131,22 +131,17 @@ int main() {
     return 0;
 }*/
 
-/*int main() {
+int main() {
     exactinit();
     // const uint32_t n_points = 10000;
     // auto points = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>::Random(n_points, 3).eval();
     // const auto tets = TetMesh::tetrahedralize(points.data(), n_points, 1e-6);
     const uint32_t n_points = 8;
-    std::vector<double> points {
-        0, 0, 0,
-        1, 0, 0,
-        1, 1, 0,
-        0, 1, 0,
-        0, 0, 1,
-        1, 0, 1,
-        1, 1, 1,
-        0, 1, 1,
+    std::vector<double> points{
+        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
     };
-    std::vector<uint32_t> indices{0, 3, 2, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5, 2, 2, 5, 1, 1, 4, 0, 1, 5, 4, 4, 5,
-6, 4, 6, 7}; make_polyhedral_mesh_from_triangles(points.data(), n_points, indices.data(), 11); return 0;
-}*/
+    std::vector<uint32_t> indices{0, 3, 2, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5,
+                                  2, 2, 5, 1, 1, 4, 0, 1, 5, 4, 4, 5, 6, 4, 6, 7};
+    make_polyhedral_mesh_from_triangles(points.data(), n_points, indices.data(), 11);
+    return 0;
+}

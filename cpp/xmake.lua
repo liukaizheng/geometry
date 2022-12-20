@@ -31,7 +31,7 @@ target("polygonalization")
     -- set_kind("object")
     set_kind("static")
     set_languages("c++latest")
-    add_includedirs("$(projectdir)/include")
+    add_includedirs("$(projectdir)/include", "$(projectdir)/external/eigen")
     add_files("src/polygonalization/*.cpp")
 
 if is_plat("wasm") then

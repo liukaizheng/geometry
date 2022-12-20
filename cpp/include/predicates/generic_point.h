@@ -146,8 +146,10 @@ class GenericPoint3D {
 
     // return true when segments properly intersect.
     static bool inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2);
+    static bool inner_segments_cross(const GenericPoint3D& u1, const GenericPoint3D& u2, const GenericPoint3D& v1, const GenericPoint3D& v2, const int xyz);
 
     static bool point_in_inner_segment(const double* p, const double* v1, const double* v2);
+    static bool point_in_inner_segment(const GenericPoint3D& p, const GenericPoint3D& v1, const GenericPoint3D& v2, int xyz);
 
     static bool point_in_segment(const double* p, const double* v1, const double* v2);
 
