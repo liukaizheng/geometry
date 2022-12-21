@@ -73,7 +73,7 @@ BSPComplex::BSPComplex(
         const double* p = mesh.point(i);
         vertices.emplace_back(new ExplicitPoint3D(p[0], p[1], p[2]));
     }
-    verts_oris.resize(vertices.size() << 1, 2);
+    verts_oris.resize(vertices.size(), 2);
     std::vector<uint32_t> new_order;
     const uint32_t n_cells = remove_ghost_tets(mesh, new_order);
     cells.resize(n_cells);
@@ -438,9 +438,10 @@ inline void edges_partition(BSPComplex* complex, const uint32_t fid, const uint3
             break;
         }
     }
-    complex->faces[new_fid].edges.assign(face.edges.begin(), face.edges.end());
+    idx += 1;
+    complex->faces[new_fid].edges.assign(face.edges.begin() + idx, face.edges.end());
     face.edges.resize(idx);
-    for (const uint32_t eid : face.edges) {
+    for (const uint32_t eid : complex->faces[new_fid].edges) {
         complex->edges[eid].face = new_fid;
     }
 }
@@ -478,7 +479,7 @@ split_face(BSPComplex* complex, const uint32_t fid, const uint32_t constr_id, co
     uint32_t pos = 0;
     for (const uint32_t vid : face_verts) {
         if (complex->verts_oris[vid] == 0) {
-            zero_verts[pos++] = 0;
+            zero_verts[pos++] = vid;
         }
     }
 
@@ -544,7 +545,7 @@ inline void add_edges_to_face(BSPComplex* complex, BSPFace& face, const std::vec
     for (const uint32_t eid : edges) {
         for (const uint32_t vid : complex->edges[eid].vertices) {
             uint32_t* v_edges = &vert_edges[vert_visit[vid] << 1];
-            if (v_edges[0] != TriFace::INVALID) {
+            if (v_edges[0] == TriFace::INVALID) {
                 v_edges[0] = eid;
             } else {
                 v_edges[1] = eid;
@@ -748,20 +749,7 @@ void BSPComplex::split_cell(const uint32_t cid) {
     constraints_partition(this, constr_id, cid, new_cid);
 
     // reset vertex orientation wrt constraint
-    for (const uint32_t vid : cell_verts) {
-        verts_oris[vid] = 2;
-    }
-    auto reset_oris = [this](const std::vector<uint32_t>& constrs) {
-        for (const uint32_t c : constrs) {
-            const uint32_t* tri = &constraints->triangles[c * 3];
-            verts_oris[tri[0]] = 2;
-            verts_oris[tri[1]] = 2;
-            verts_oris[tri[2]] = 2;
-        }
-    };
-    reset_oris(faces.back().coplanar_constraints);
-    reset_oris(cells[cid].constraints);
-    reset_oris(cells[new_cid].constraints);
+    std::fill(verts_oris.begin(), verts_oris.end(), 2);
 }
 
 inline int face_normal_dominant_component(const BSPComplex* complex, const BSPFace& face) {

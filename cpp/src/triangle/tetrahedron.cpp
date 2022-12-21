@@ -725,9 +725,9 @@ TetMesh TetMesh::tetrahedralize(const double* points, const uint32_t n_points, c
     }
     // make p2t[i] not be a ghost
     for (i = 0; i < n_points; i++) {
-        const uint32_t t = tet_map[tets.p2t[i]];
-        if (tets.is_hull_tet(t)) {
-            tets.p2t[i] = tets.tets[t].nei[3].tet;
+        tets.p2t[i] = tet_map[tets.p2t[i]];
+        if (tets.is_hull_tet(tets.p2t[i])) {
+            tets.p2t[i] = tets.tets[tets.p2t[i]].nei[3].tet;
         }
     }
     return tets;

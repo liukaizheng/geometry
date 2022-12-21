@@ -151,15 +151,24 @@ int main() {
     // const uint32_t n_points = 10000;
     // auto points = Eigen::Matrix<double, Eigen::Dynamic, 3, Eigen::RowMajor>::Random(n_points, 3).eval();
     // const auto tets = TetMesh::tetrahedralize(points.data(), n_points, 1e-6);
-    const uint32_t n_points = 8;
+    initstaticfilter(1, 1, 1);
+    double p1[3](2.0 / 3.0, 2.0 / 3.0, 1.0 / 3.0);
+    double a[3]{0, 1, 0};
+    double b[3]{1, 1, 1};
+    double c[3]{0.5, 0.5, 0.5};
+    double ret = orient3d(p1, a, b, c);
+    const uint32_t n_points = 9;
     std::vector<double> points{
-        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
+        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0.5, 0.5, 0.5
     };
-    std::vector<uint32_t> indices{0, 3, 2, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5,
+    std::vector<uint32_t> indices{ 1, 3, 8, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5,
                                   2, 2, 5, 1, 1, 4, 0, 1, 5, 4, 4, 5, 6, 4, 6, 7};
+    writeOBJ("456.obj", points.data(), n_points, indices.data(), indices.size() / 3);
     std::vector<double> out_points;
     std::vector<uint32_t> out_faces, seperator;
-    make_polyhedral_mesh_from_triangles(points.data(), n_points, indices.data(), 11, out_points, out_faces, seperator);
+    make_polyhedral_mesh_from_triangles(
+        points.data(), n_points, indices.data(), indices.size() / 3, out_points, out_faces, seperator
+    );
     writePolygon("123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(), seperator.size() - 1);
     return 0;
 }

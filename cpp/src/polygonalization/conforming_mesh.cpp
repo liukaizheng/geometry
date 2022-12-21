@@ -518,7 +518,7 @@ inline bool intersection_class_tetedge(
                      (vert_point_in_segment(mesh, coplanar_v[0], c[0], c[1]) << 2);
     int vb_on_edge = static_cast<int>(vert_point_in_segment(mesh, coplanar_v[1], c[1], c[2])) |
                      (vert_point_in_segment(mesh, coplanar_v[1], c[2], c[0]) << 1) |
-                     (vert_point_in_segment(mesh, coplanar_v[2], c[0], c[1]) << 2);
+                     (vert_point_in_segment(mesh, coplanar_v[1], c[0], c[1]) << 2);
     va_in |= va_on_edge > 0;
     vb_in |= vb_on_edge > 0;
     if (va_in && vb_in) {
@@ -543,7 +543,7 @@ inline bool intersection_class_tetedge(
         }
         // otherwise.. the intersection is proper
         return false;
-    } else if (va_in && vb_in) {
+    } else if (va_in || vb_in) {
         // edge [va vb] crosses triangle edge
         if (vert_inner_segments_cross(mesh, coplanar_v[0], coplanar_v[1], c[0], c[1]) ||
             vert_inner_segments_cross(mesh, coplanar_v[0], coplanar_v[1], c[1], c[2]) ||
@@ -648,8 +648,8 @@ inline void find_improper_intersection(
             const uint32_t oppo_vid = tet.index(neg.empty() ? pos[0] : neg[0]);
             if (intersection_class_tetface(mesh, triangle, zero.data())) {
                 tet_marks[tid] = static_cast<IType>(oppo_vid);
-                continue;
             }
+            continue;
         } else if (zero.size() == 2) {
             if (neg.size() != 1) {
                 continue;
@@ -657,8 +657,8 @@ inline void find_improper_intersection(
             const uint32_t unplanar_v[2]{neg[0], pos[0]};
             if (intersection_class_tetedge(mesh, triangle, zero.data(), unplanar_v)) {
                 tet_marks[tid] = IType::IMPROPER_INTERSECTION;
-                continue;
             }
+            continue;
         } else if (zero.size() == 1) {
             if (neg.empty() || pos.empty()) {
                 continue;
@@ -674,8 +674,8 @@ inline void find_improper_intersection(
             }
             if (intersection_class_tetvert(mesh, triangle, zero[0], under_v, over_v)) {
                 tet_marks[tid] = IType::IMPROPER_INTERSECTION;
-                continue;
             }
+            continue;
         }
         // since intersection exists, it's improper
         tet_marks[tid] = IType::IMPROPER_INTERSECTION;
