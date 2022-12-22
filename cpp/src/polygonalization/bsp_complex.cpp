@@ -268,7 +268,7 @@ inline bool two_equal_vertices(const uint32_t* v1, const uint32_t* v2, uint32_t*
         comm[i++] = v1[1];
     }
     if (v1[2] == v2[0] || v1[2] == v2[1] || v1[2] == v2[2]) {
-        comm[i++] = v1[1];
+        comm[i++] = v1[2];
     }
     return i >= 2;
 }
@@ -700,12 +700,22 @@ constraints_partition(BSPComplex* complex, const uint32_t constr_id, const uint3
 
 void BSPComplex::split_cell(const uint32_t cid) {
     /*{ 
-        BSPCell& _c = cells[23];
+        double nv[3];
+        const auto vv = vertices.back();
+        vv->to_double(nv);
+        if (nv[2] > 0) {
+            const int b = 2;
+        }
+        BSPCell& _c = cells[172];
         std::vector<uint32_t> v, e;
         find_cell_verts_and_edges(this, _c, v, e);
         std::vector<double> p(v.size() * 3);
         for (uint32_t i = 0; i < v.size(); i++) {
             vertices[v[i]]->to_double(&p[i * 3]);
+        }
+        std::vector<std::vector<uint32_t>> evs;
+        for (const uint32_t eid : e) {
+            evs.emplace_back(std::vector{edges[eid].vertices[0], edges[eid].vertices[1]});
         }
         std::vector<std::vector<uint32_t>> fvs;
         for (const auto fid : _c.faces) {
@@ -745,7 +755,8 @@ void BSPComplex::split_cell(const uint32_t cid) {
         return;
     }
 
-    for (const uint32_t eid : cell_edges) {
+    for (uint32_t i = 0, ne = static_cast<uint32_t>(cell_edges.size()); i < ne; i++) {
+        const uint32_t eid = cell_edges[i];
         const BSPEdge& edge = edges[eid];
         if (constraint_inner_intersects_edge(edge, verts_oris.data())) {
             split_edge(this, eid, constr_id);

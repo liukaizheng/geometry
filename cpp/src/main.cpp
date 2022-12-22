@@ -269,7 +269,7 @@ int main() {
     exactinit();
     std::vector<std::vector<double>> V;
     std::vector<std::vector<uint32_t>> F;
-    readOBJ("two_cube.obj", V, F);
+    readOBJ("bust.obj", V, F);
     std::vector<double> points;
     std::vector<uint32_t> indices;
     for (const auto& vs : V) {
@@ -282,9 +282,9 @@ int main() {
         indices.emplace_back(fs[1]);
         indices.emplace_back(fs[2]);
     }
-    indices.emplace_back(2);
+    /*indices.emplace_back(2);
     indices.emplace_back(1);
-    indices.emplace_back(3);
+    indices.emplace_back(3);*/
     std::vector<double> out_points;
     std::vector<uint32_t> out_faces, seperator;
     make_polyhedral_mesh_from_triangles(

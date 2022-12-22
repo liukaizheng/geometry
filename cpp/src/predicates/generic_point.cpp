@@ -5480,7 +5480,7 @@ void ImplicitPointLPI::to_double_approx(double* result) {
         lz = dfilter[2].max() + dfilter[2].min();
         d = dfilter[3].max() + dfilter[3].min();
     } else {
-        to_double_approx(result);
+        to_double(result);
         return;
     }
     result[0] = lx / d;
@@ -6028,7 +6028,7 @@ void ImplicitPointTPI::get_exact_lambda(
     if (d.data()[dl - 1] < 0) {
         invert_expansion(lxl, lx.data());
         invert_expansion(lyl, ly.data());
-        invert_expansion(lxl, lz.data());
+        invert_expansion(lzl, lz.data());
         invert_expansion(dl, d.data());
     }
     normalizeLambda3D(lx.data(), lxl, ly.data(), lyl, lz.data(), lzl, d.data(), dl);
