@@ -251,7 +251,7 @@ inline uint32_t add_lpi_vert(BSPComplex* complex, const BSPEdge& edge, const uin
     auto& vertices = complex->vertices;
     const uint32_t vid = static_cast<uint32_t>(vertices.size());
     complex->vertices.emplace_back(new ImplicitPointLPI(
-        vertices[edge.vertices[0]]->to_explicit(), vertices[edge.vertices[1]]->to_explicit(),
+        vertices[edge.mesh_vertices[0]]->to_explicit(), vertices[edge.mesh_vertices[1]]->to_explicit(),
         vertices[tri[0]]->to_explicit(), vertices[tri[1]]->to_explicit(), vertices[tri[2]]->to_explicit()
     ));
     complex->verts_oris.emplace_back(2);
@@ -668,7 +668,7 @@ constraints_partition(BSPComplex* complex, const uint32_t constr_id, const uint3
     uint32_t n_constr = static_cast<uint32_t>(down_cell.constraints.size());
     auto& vert_oris = complex->verts_oris;
     for (uint32_t i = 0; i < n_constr;) {
-        const uint32_t* triangle = &complex->constraints->triangles[down_cell.constraints[i]];
+        const uint32_t* triangle = &complex->constraints->triangles[down_cell.constraints[i] * 3];
         verts_orient_wrt_plane(complex, constraint, triangle, 3);
         uint32_t n_over = 0, n_under = 0;
         for (uint32_t j = 0; j < 3; j++) {
@@ -699,6 +699,29 @@ constraints_partition(BSPComplex* complex, const uint32_t constr_id, const uint3
 }
 
 void BSPComplex::split_cell(const uint32_t cid) {
+    /*{ 
+        BSPCell& _c = cells[23];
+        std::vector<uint32_t> v, e;
+        find_cell_verts_and_edges(this, _c, v, e);
+        std::vector<double> p(v.size() * 3);
+        for (uint32_t i = 0; i < v.size(); i++) {
+            vertices[v[i]]->to_double(&p[i * 3]);
+        }
+        std::vector<std::vector<uint32_t>> fvs;
+        for (const auto fid : _c.faces) {
+            std::vector<uint32_t> fv;
+            face_vertices(this, faces[fid], fv);
+            fvs.emplace_back(fv);
+        }
+        const auto* p1 = vertices[1];
+        const auto* p2 = vertices[15];
+        const auto* p3 = vertices[10];
+        std::vector<int> oo;
+        for (const uint32_t vid : v) {
+            oo.emplace_back(GenericPoint3D::orient3d(*vertices[vid], *p1, *p2, *p3));
+        }
+        const int a = 2;
+    }*/
     BSPCell& cell = cells[cid];
     const uint32_t constr_id = cell.constraints.back();
     cell.constraints.pop_back();
@@ -717,6 +740,10 @@ void BSPComplex::split_cell(const uint32_t cid) {
 
     uint32_t n_over = 0, n_under = 0, n_on = 0;
     count_vert_orient(cell_verts, verts_oris.data(), n_over, n_under, n_on);
+    if (n_over == 0 || n_under == 0) {
+        std::fill(verts_oris.begin(), verts_oris.end(), 2);
+        return;
+    }
 
     for (const uint32_t eid : cell_edges) {
         const BSPEdge& edge = edges[eid];
@@ -1221,6 +1248,9 @@ void BSPComplex::extract_skin(
             queue.pop();
             for (const auto& e_pair : fe_map[fi]) {
                 uint32_t eid = e_pair.first;
+                if (ef_map[eid].size() != 2) {
+                    continue;
+                }
                 const bool e_rev = f_rev ^ e_pair.second;
                 uint32_t nfi;
                 bool nrev;
