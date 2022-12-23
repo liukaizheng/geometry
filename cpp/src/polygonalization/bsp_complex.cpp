@@ -699,7 +699,7 @@ constraints_partition(BSPComplex* complex, const uint32_t constr_id, const uint3
 }
 
 void BSPComplex::split_cell(const uint32_t cid) {
-    /*{ 
+    /*{
         double nv[3];
         const auto vv = vertices.back();
         vv->to_double(nv);
@@ -978,10 +978,9 @@ void BSPComplex::decide_color() {
             bool found = false;
             for (const uint32_t cid : face.coplanar_constraints) {
                 const uint32_t* tri = &constraints->triangles[cid * 3];
-                const double* p0 = vertices[tri[0]]->to_explicit().ptr();
-                const double* p1 = vertices[tri[1]]->to_explicit().ptr();
-                const double* p2 = vertices[tri[2]]->to_explicit().ptr();
-                if (GenericPoint3D::point_in_triangle(p, p0, p1, p2)) {
+                if (GenericPoint3D::point_in_triangle(
+                        face_center, *vertices[tri[0]], *vertices[tri[1]], *vertices[tri[2]], xyz
+                    )) {
                     found = true;
                     face.color = FaceColor::BLACK;
                     break;

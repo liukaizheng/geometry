@@ -156,6 +156,7 @@ class GenericPoint3D {
     static bool point_in_inner_triangle(const double* p, const double* v1, const double* v2, const double* v3);
 
     static bool point_in_triangle(const double* p, const double* v1, const double* v2, const double* v3);
+    static bool point_in_triangle(const GenericPoint3D& p, const GenericPoint3D& v1, const GenericPoint3D& v2, const GenericPoint3D& v3, const int xyz);
 };
 
 class ExplicitPoint3D : public GenericPoint3D {

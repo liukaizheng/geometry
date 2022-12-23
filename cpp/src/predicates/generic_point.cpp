@@ -5119,6 +5119,26 @@ bool GenericPoint3D::point_in_triangle(const double* p, const double* v1, const 
            GenericPoint3D::point_in_segment(p, v3, v1) || GenericPoint3D::point_in_inner_triangle(p, v1, v2, v3);
 }
 
+bool GenericPoint3D::point_in_triangle(
+    const GenericPoint3D& p, const GenericPoint3D& v1, const GenericPoint3D& v2, const GenericPoint3D& v3, const int xyz
+) {
+    int o1, o2, o3;
+    if (xyz == 2) {
+        o1 = GenericPoint3D::orient_xy(p, v1, v2);
+        o2 = GenericPoint3D::orient_xy(p, v2, v3);
+        o3 = GenericPoint3D::orient_xy(p, v3, v1);
+    } else if (xyz == 0) {
+        o1 = GenericPoint3D::orient_yz(p, v1, v2);
+        o2 = GenericPoint3D::orient_yz(p, v2, v3);
+        o3 = GenericPoint3D::orient_yz(p, v3, v1);
+    } else {
+        o1 = GenericPoint3D::orient_zx(p, v1, v2);
+        o2 = GenericPoint3D::orient_zx(p, v2, v3);
+        o3 = GenericPoint3D::orient_zx(p, v3, v1);
+    }
+    return ((o1 >= 0 && o2 >= 0 && o3 >= 0) || (o1 <= 0 && o2 <= 0 && o3 <= 0));
+}
+
 bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, const double* v1, const double* v2) {
     // The 4 endpoints must be coplanar
     if (::orient3d(u1, u2, v1, v2) != 0.) return false;
@@ -5151,7 +5171,8 @@ bool GenericPoint3D::inner_segments_cross(const double* u1, const double* u2, co
 }
 
 bool GenericPoint3D::inner_segments_cross(
-    const GenericPoint3D& u1, const GenericPoint3D& u2, const GenericPoint3D& v1, const GenericPoint3D& v2, const int xyz
+    const GenericPoint3D& u1, const GenericPoint3D& u2, const GenericPoint3D& v1, const GenericPoint3D& v2,
+    const int xyz
 ) {
     int o11, o12, o21, o22;
 
