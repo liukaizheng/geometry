@@ -351,19 +351,19 @@ inline int orient2d_SSS(const implicitPoint2D_SSI& a, const implicitPoint2D_SSI&
 int GenericPoint2D::orient2D(const GenericPoint2D& a, const GenericPoint2D& b, const GenericPoint2D& c) {
     switch (a.isExplicit() << 2 | b.isExplicit() << 1 | c.isExplicit()) {
     case 0:
-        return -orient2d_SSS(a.toSSI(), b.toSSI(), c.toSSI());
+        return orient2d_SSS(a.toSSI(), b.toSSI(), c.toSSI());
     case 1:
-        return -orient2d_SSE(a.toSSI(), b.toSSI(), c.toExplicit2D().ptr());
+        return orient2d_SSE(a.toSSI(), b.toSSI(), c.toExplicit2D().ptr());
     case 2:
-        return -orient2d_SSE(c.toSSI(), a.toSSI(), b.toExplicit2D().ptr());
+        return orient2d_SSE(c.toSSI(), a.toSSI(), b.toExplicit2D().ptr());
     case 3:
-        return -orient2d_SEE(a.toSSI(), b.toExplicit2D().ptr(), c.toExplicit2D().ptr());
+        return orient2d_SEE(a.toSSI(), b.toExplicit2D().ptr(), c.toExplicit2D().ptr());
     case 4:
-        return -orient2d_SSE(b.toSSI(), c.toSSI(), a.toExplicit2D().ptr());
+        return orient2d_SSE(b.toSSI(), c.toSSI(), a.toExplicit2D().ptr());
     case 5:
-        return -orient2d_SEE(b.toSSI(), c.toExplicit2D().ptr(), a.toExplicit2D().ptr());
+        return orient2d_SEE(b.toSSI(), c.toExplicit2D().ptr(), a.toExplicit2D().ptr());
     case 6:
-        return -orient2d_SEE(c.toSSI(), a.toExplicit2D().ptr(), b.toExplicit2D().ptr());
+        return orient2d_SEE(c.toSSI(), a.toExplicit2D().ptr(), b.toExplicit2D().ptr());
     case 7:
         return orient2d_EEE(a.toExplicit2D(), b.toExplicit2D(), c.toExplicit2D());
     }
@@ -4063,57 +4063,57 @@ int GenericPoint3D::orient_xy(const GenericPoint3D& a, const GenericPoint3D& b, 
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
-        return -orient_xy_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
+        return orient_xy_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
     case 2: // EET
-        return -orient_xy_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
+        return orient_xy_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
     case 3: // ELE
-        return -orient_xy_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
+        return orient_xy_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
     case 4: // ELL
-        return -orient_xy_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
+        return orient_xy_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
     case 5: // ELT
-        return -orient_xy_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
+        return orient_xy_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
     case 6: // ETE
-        return -orient_xy_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
+        return orient_xy_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
     case 7: // ETL
-        return orient_xy_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
+        return -orient_xy_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
     case 8: // ETT
-        return -orient_xy_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
+        return orient_xy_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
     case 9: // LEE
-        return -orient_xy_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
+        return orient_xy_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
     case 10: // LEL
-        return -orient_xy_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
+        return orient_xy_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
     case 11: // LET
-        return orient_xy_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
+        return -orient_xy_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
     case 12: // LLE
-        return -orient_xy_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
+        return orient_xy_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
     case 13: // LLL
-        return -orient_xy_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
+        return orient_xy_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
     case 14: // LLT
-        return -orient_xy_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
+        return orient_xy_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
     case 15: // LTE
-        return -orient_xy_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
+        return orient_xy_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
     case 16: // LTL
-        return -orient_xy_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
+        return orient_xy_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
     case 17: // LTT
-        return -orient_xy_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
+        return orient_xy_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
     case 18: // TEE
-        return -orient_xy_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
+        return orient_xy_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
     case 19: // TEL
-        return -orient_xy_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
+        return orient_xy_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
     case 20: // TET
-        return -orient_xy_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
+        return orient_xy_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
     case 21: // TLE
-        return orient_xy_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
+        return -orient_xy_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
     case 22: // TLL
-        return -orient_xy_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
+        return orient_xy_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
     case 23: // TLT
-        return -orient_xy_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
+        return orient_xy_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
     case 24: // TTE
-        return -orient_xy_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
+        return orient_xy_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
     case 25: // TLT
-        return -orient_xy_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
+        return orient_xy_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
     case 26: // TTT
-        return -orient_xy_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
+        return orient_xy_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
     default:
         return IPSign::UNDEFINED;
     }
@@ -4127,57 +4127,57 @@ int GenericPoint3D::orient_yz(const GenericPoint3D& a, const GenericPoint3D& b, 
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
-        return -orient_yz_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
+        return orient_yz_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
     case 2: // EET
-        return -orient_yz_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
+        return orient_yz_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
     case 3: // ELE
-        return -orient_yz_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
+        return orient_yz_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
     case 4: // ELL
-        return -orient_yz_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
+        return orient_yz_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
     case 5: // ELT
-        return -orient_yz_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
+        return orient_yz_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
     case 6: // ETE
-        return -orient_yz_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
+        return orient_yz_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
     case 7: // ETL
-        return orient_yz_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
+        return -orient_yz_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
     case 8: // ETT
-        return -orient_yz_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
+        return orient_yz_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
     case 9: // LEE
-        return -orient_yz_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
+        return orient_yz_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
     case 10: // LEL
-        return -orient_yz_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
+        return orient_yz_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
     case 11: // LET
-        return orient_yz_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
+        return -orient_yz_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
     case 12: // LLE
-        return -orient_yz_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
+        return orient_yz_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
     case 13: // LLL
-        return -orient_yz_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
+        return orient_yz_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
     case 14: // LLT
-        return -orient_yz_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
+        return orient_yz_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
     case 15: // LTE
-        return -orient_yz_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
+        return orient_yz_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
     case 16: // LTL
-        return -orient_yz_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
+        return orient_yz_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
     case 17: // LTT
-        return -orient_yz_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
+        return orient_yz_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
     case 18: // TEE
-        return -orient_yz_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
+        return orient_yz_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
     case 19: // TEL
-        return -orient_yz_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
+        return orient_yz_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
     case 20: // TET
-        return -orient_yz_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
+        return orient_yz_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
     case 21: // TLE
-        return orient_yz_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
+        return -orient_yz_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
     case 22: // TLL
-        return -orient_yz_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
+        return orient_yz_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
     case 23: // TLT
-        return -orient_yz_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
+        return orient_yz_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
     case 24: // TTE
-        return -orient_yz_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
+        return orient_yz_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
     case 25: // TLT
-        return -orient_yz_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
+        return orient_yz_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
     case 26: // TTT
-        return -orient_yz_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
+        return orient_yz_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
     default:
         return IPSign::UNDEFINED;
     }
@@ -4197,57 +4197,57 @@ int GenericPoint3D::orient_zx(const GenericPoint3D& a, const GenericPoint3D& b, 
         return (ret > 0) - (ret < 0);
     }
     case 1: // EEL
-        return -orient_zx_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
+        return orient_zx_lee(c.to_lpi(), a.to_explicit(), b.to_explicit());
     case 2: // EET
-        return -orient_zx_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
+        return orient_zx_tee(c.to_tpi(), a.to_explicit(), b.to_explicit());
     case 3: // ELE
-        return -orient_zx_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
+        return orient_zx_lee(b.to_lpi(), c.to_explicit(), a.to_explicit());
     case 4: // ELL
-        return -orient_zx_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
+        return orient_zx_lle(b.to_lpi(), c.to_lpi(), a.to_explicit());
     case 5: // ELT
-        return -orient_zx_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
+        return orient_zx_lte(b.to_lpi(), c.to_tpi(), a.to_explicit());
     case 6: // ETE
-        return -orient_zx_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
+        return orient_zx_tee(b.to_tpi(), c.to_explicit(), a.to_explicit());
     case 7: // ETL
-        return orient_zx_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
+        return -orient_zx_lte(c.to_lpi(), b.to_tpi(), a.to_explicit());
     case 8: // ETT
-        return -orient_zx_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
+        return orient_zx_tte(b.to_tpi(), c.to_tpi(), a.to_explicit());
     case 9: // LEE
-        return -orient_zx_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
+        return orient_zx_lee(a.to_lpi(), b.to_explicit(), c.to_explicit());
     case 10: // LEL
-        return -orient_zx_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
+        return orient_zx_lle(c.to_lpi(), a.to_lpi(), b.to_explicit());
     case 11: // LET
-        return orient_zx_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
+        return -orient_zx_lte(a.to_lpi(), c.to_tpi(), b.to_explicit());
     case 12: // LLE
-        return -orient_zx_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
+        return orient_zx_lle(a.to_lpi(), b.to_lpi(), c.to_explicit());
     case 13: // LLL
-        return -orient_zx_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
+        return orient_zx_lll(a.to_lpi(), b.to_lpi(), c.to_lpi());
     case 14: // LLT
-        return -orient_zx_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
+        return orient_zx_llt(a.to_lpi(), b.to_lpi(), c.to_tpi());
     case 15: // LTE
-        return -orient_zx_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
+        return orient_zx_lte(a.to_lpi(), b.to_tpi(), c.to_explicit());
     case 16: // LTL
-        return -orient_zx_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
+        return orient_zx_llt(c.to_lpi(), a.to_lpi(), b.to_tpi());
     case 17: // LTT
-        return -orient_zx_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
+        return orient_zx_ltt(a.to_lpi(), b.to_tpi(), c.to_tpi());
     case 18: // TEE
-        return -orient_zx_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
+        return orient_zx_tee(a.to_tpi(), b.to_explicit(), c.to_explicit());
     case 19: // TEL
-        return -orient_zx_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
+        return orient_zx_lte(c.to_lpi(), a.to_tpi(), b.to_explicit());
     case 20: // TET
-        return -orient_zx_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
+        return orient_zx_tte(c.to_tpi(), a.to_tpi(), b.to_explicit());
     case 21: // TLE
-        return orient_zx_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
+        return -orient_zx_lte(b.to_lpi(), a.to_tpi(), c.to_explicit());
     case 22: // TLL
-        return -orient_zx_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
+        return orient_zx_llt(b.to_lpi(), c.to_lpi(), a.to_tpi());
     case 23: // TLT
-        return -orient_zx_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
+        return orient_zx_ltt(b.to_lpi(), c.to_tpi(), a.to_tpi());
     case 24: // TTE
-        return -orient_zx_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
+        return orient_zx_tte(a.to_tpi(), b.to_tpi(), c.to_explicit());
     case 25: // TLT
-        return -orient_zx_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
+        return orient_zx_ltt(c.to_lpi(), a.to_tpi(), b.to_tpi());
     case 26: // TTT
-        return -orient_zx_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
+        return orient_zx_ttt(a.to_tpi(), b.to_tpi(), c.to_tpi());
     default:
         return IPSign::UNDEFINED;
     }

@@ -142,11 +142,14 @@ inline TriFace triangle_at_tet(TetMesh& mesh, const uint32_t* tri, std::vector<u
         }
         if (stop) break;
         for (uint32_t j = 0; j < 4; j++) {
-            const uint32_t nei = mesh.tets[tid].nei[j].tet;
-            if (mesh.is_hull_tet(nei) || mesh.mark_tested(nei)) {
+            if (j == vid) {
                 continue;
             }
-            push(nei);
+            const uint32_t nei = mesh.tets[tid].nei[j].tet;
+            if (!mesh.is_hull_tet(nei) && !mesh.mark_tested(nei)) {
+                push(nei);
+            }
+            
         }
     }
 
