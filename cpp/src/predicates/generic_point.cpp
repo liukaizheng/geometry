@@ -3311,7 +3311,7 @@ inline int orient_yz_lle(const ImplicitPointLPI& a, const ImplicitPointLPI& b, c
     }
     if (a.get_interval_lambda() && b.get_interval_lambda()) {
         if ((ret = orient_xy_iie_interval(
-                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.x, c.y
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.y, c.z
              )) != 0.0)
             return ret;
     }
@@ -3419,7 +3419,7 @@ inline int orient_yz_lte(const ImplicitPointLPI& a, const ImplicitPointTPI& b, c
     }
     if (a.get_interval_lambda() && b.get_interval_lambda()) {
         if ((ret = orient_xy_iie_interval(
-                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.x, c.y
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.y, c.z
              )) != 0.0)
             return ret;
     }
@@ -3526,7 +3526,7 @@ inline int orient_yz_tte(const ImplicitPointTPI& a, const ImplicitPointTPI& b, c
     }
     if (a.get_interval_lambda() && b.get_interval_lambda()) {
         if ((ret = orient_xy_iie_interval(
-                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.x, c.y
+                 a.dfilter[1], a.dfilter[2], a.dfilter[3], b.dfilter[1], b.dfilter[2], b.dfilter[3], c.y, c.z
              )) != 0.0)
             return ret;
     }
