@@ -134,7 +134,7 @@ uint32_t make_polyhedral_mesh(
     *out_axis_data = axes.release();
     
     // seperators
-    auto out_seps = std::make_unique<uint32_t>(out_seperator_vec.size());
+    auto out_seps = std::make_unique<uint32_t[]>(out_seperator_vec.size());
     std::copy(out_seperator_vec.begin(), out_seperator_vec.end(), out_seps.get());
     *out_seperators = out_seps.release();
     

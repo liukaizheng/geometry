@@ -303,7 +303,7 @@ inline uint32_t tet_vert_on_constraint_sides(
 inline bool verts_in_same_half_space(
     const TetMesh& mesh, const uint32_t u1, const uint32_t u2, const uint32_t v1, const uint32_t v2, const uint32_t v3
 ) {
-    return mesh.orient3d(u1, v1, v2, v3) != mesh.orient3d(u2, v1, v2, v3);
+    return mesh.orient3d(u1, v1, v2, v3) == mesh.orient3d(u2, v1, v2, v3);
 }
 
 inline bool
