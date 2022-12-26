@@ -1132,7 +1132,8 @@ void BSPComplex::complex_partition() {
 }
 
 void BSPComplex::extract_skin(
-    std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<uint32_t>& seperator
+    std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<double>& axes,
+    std::vector<uint32_t>& seperator
 ) {
     std::vector<uint32_t> kept;                                               // kept faces
     std::vector<std::vector<std::pair<uint32_t, bool>>> ef_map(edges.size()); // pair: <fid, reversed>
@@ -1182,6 +1183,7 @@ void BSPComplex::extract_skin(
     std::fill(edge_visit.begin(), edge_visit.end(), 0);
 
     out_faces.reserve(kept.size() * 3);
+    axes.reserve(kept.size() * 6);
     seperator.reserve(kept.size() + 1);
     seperator.emplace_back(0);
     std::vector<bool> face_visit(faces.size(), false);
@@ -1237,8 +1239,8 @@ void BSPComplex::extract_skin(
         }
         std::queue<std::pair<uint32_t, bool>> queue; // <face, reversed>
 
-        const auto push_queue = [&queue, &face_visit, &face_verts, &pmap, &seperator,
-                                 &out_faces](const uint32_t fi, bool reversed) {
+        const auto push_queue = [this, &queue, &face_visit, &face_verts, &pmap, &seperator,
+                                 &out_faces, &axes](const uint32_t fi, bool reversed) {
             queue.emplace(fi, reversed);
             face_visit[fi] = true;
             if (reversed) {
@@ -1248,6 +1250,18 @@ void BSPComplex::extract_skin(
             for (const uint32_t vid : face_verts) {
                 out_faces.emplace_back(pmap[vid]);
             }
+            axes.resize(axes.size() + 6);
+            const BSPFace& f = this->faces[fi];
+            using Vec3 = Eigen::Map<Eigen::Vector3d>;
+            using CVec3 = const Eigen::Map<const Eigen::Vector3d>;
+            CVec3 v0(this->vertices[f.mesh_vertices[0]]->to_explicit().ptr());
+            CVec3 v1(this->vertices[f.mesh_vertices[1]]->to_explicit().ptr());
+            CVec3 v2(this->vertices[f.mesh_vertices[2]]->to_explicit().ptr());
+            Vec3 x_axis(&axes[axes.size() - 6]);
+            x_axis = (v1 - v0).normalized();
+            const auto z_axis = x_axis.cross((v2 - v0)).normalized();
+            Vec3 y_axis(&axes[axes.size() - 3]);
+            y_axis= z_axis.cross(x_axis).eval();
         };
         // assert( ori != 0);
         push_queue(fid, ori < 0);

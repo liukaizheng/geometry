@@ -99,5 +99,5 @@ struct BSPComplex {
     void split_cell(const uint32_t cid);
     void decide_color();
     void complex_partition();
-    void extract_skin(std::vector<double>& points, std::vector<uint32_t>& faces, std::vector<uint32_t>& seperator);
+    void extract_skin(std::vector<double>& points, std::vector<uint32_t>& faces, std::vector<double>& axes, std::vector<uint32_t>& seperator);
 };

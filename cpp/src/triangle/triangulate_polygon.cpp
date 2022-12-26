@@ -1,4 +1,5 @@
 #include <triangle/triangle.h>
+#include <triangle/triangulate_polygon.h>
 
 #include <Eigen/Dense>
 #include <cmath>
@@ -30,7 +31,9 @@ std::vector<Index> unique_indices(const Index* indices, const Index len, std::ve
     return result;
 }
 
+#ifdef EMSCRIPTEN
 extern "C" {
+#endif
 uint32_t* triangulate_polygon(
     const double* points, const uint32_t* segments, const uint32_t n_segments, const double* origin_data,
     const double* x_axis_data, const double* y_axis_data, uint32_t* n_triangles
@@ -90,4 +93,6 @@ uint32_t* triangulate_polygon_soup(
     std::copy(triangle_data.begin(), triangle_data.end(), &result[0]);
     return result.release();
 }
+#ifdef EMSCRIPTEN
 }
+#endif

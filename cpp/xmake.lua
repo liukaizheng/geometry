@@ -36,10 +36,10 @@ target("polygonalization")
 
 if is_plat("wasm") then
     target("geometry")
-        set_filename("geometry.wasm")
+        set_filename("geometry.js")
         add_deps("triangle", "predicates", "graphcut", "polygonalization")
-        add_ldflags("--no-entry", "-sSTANDALONE_WASM")
-        add_ldflags("-sEXPORTED_FUNCTIONS=[_malloc,_free,_exactinit,_triangulate,_triangulate_polygon_soup]", {force = true})
+        add_ldflags("--no-entry", "-sSINGLE_FILE", "-sTOTAL_MEMORY=500MB", "-sMODULARIZE=1")
+        add_ldflags("-sEXPORTED_FUNCTIONS=[_malloc,_free,_exactinit,_triangulate,_triangulate_polygon_soup,_make_polyhedral_mesh]", {force = true})
 else
     target("geometry")
         set_kind("binary")

@@ -18,6 +18,12 @@ uint32_t* triangulate_polygon_soup(
     const double* points, const uint32_t* edge_data, const double* axis_data, const uint32_t* seperator,
     const uint32_t n_polygon, uint32_t* n_triangles
 );
+
+uint32_t make_polyhedral_mesh(
+    const double* points, const uint32_t n_points, const uint32_t* edge_data, const double* axis_data,
+    const uint32_t* seperator, const uint32_t n_polygons, double** out_points, uint32_t** out_polygons,
+    double** out_axis_data, uint32_t** out_seperators
+);
 }
 
 static void writeOBJ(
@@ -35,9 +41,12 @@ static void writeOBJ(
     file.close();
 }
 
-static void writePolygon(const std::string& name, const double* data, const uint32_t n_points, const uint32_t* indices, const uint32_t* seperator, const uint32_t n_polygon) {
+static void writePolygon(
+    const std::string& name, const double* data, const uint32_t n_points, const uint32_t* indices,
+    const uint32_t* seperator, const uint32_t n_polygon
+) {
     std::ofstream file(name);
-    for (uint32_t i = 0; i < n_points; i++) {
+    /* for (uint32_t i = 0; i < n_points; i++) {
         file << "v " << data[3 * i] << " " << data[3 * i + 1] << " " << data[3 * i + 2] << "\n";
     }
     for (uint32_t i = 0; i < n_polygon; i++) {
@@ -46,7 +55,7 @@ static void writePolygon(const std::string& name, const double* data, const uint
             file << " " << indices[j] + 1;
         }
         file << "\n";
-    }
+    }*/
     file.close();
 }
 
@@ -102,10 +111,8 @@ static void read_flow(
 }
 
 template <typename scalar, typename Index>
-inline bool readOBJ(
-    const std::string& file_name, std::vector<std::vector<scalar>>& V,
-    std::vector<std::vector<Index>>& F
-) {
+inline bool
+readOBJ(const std::string& file_name, std::vector<std::vector<scalar>>& V, std::vector<std::vector<Index>>& F) {
     FILE* obj_file = fopen(file_name.c_str(), "r");
     if (obj_file == NULL) {
         std::cout << "maybe error in filename\n";
@@ -164,7 +171,7 @@ inline bool readOBJ(
                     long int i, it, in;
                     if (sscanf(word, "%ld/%ld/%ld", &i, &it, &in) == 3) {
                         f.push_back(shift(i));
-                       
+
                     } else if (sscanf(word, "%ld/%ld", &i, &it) == 2) {
                         f.push_back(shift(i));
                     } else if (sscanf(word, "%ld//%ld", &i, &in) == 2) {
@@ -261,11 +268,11 @@ inline bool readOBJ(
     make_polyhedral_mesh_from_triangles(
         points.data(), n_points, indices.data(), indices.size() / 3, out_points, out_faces, seperator
     );
-    writePolygon("123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(), seperator.size() - 1);
-    return 0;
+    writePolygon("123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(),
+seperator.size() - 1); return 0;
 }*/
 
-int main() {
+/* int main() {
     exactinit();
     std::vector<std::vector<double>> V;
     std::vector<std::vector<uint32_t>> F;
@@ -282,9 +289,9 @@ int main() {
         indices.emplace_back(fs[1]);
         indices.emplace_back(fs[2]);
     }
-    /*indices.emplace_back(2);
+    indices.emplace_back(2);
     indices.emplace_back(1);
-    indices.emplace_back(3);*/
+    indices.emplace_back(4);
     std::vector<double> out_points;
     std::vector<uint32_t> out_faces, seperator;
     make_polyhedral_mesh_from_triangles(
@@ -293,4 +300,33 @@ int main() {
     writePolygon(
         "123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(), seperator.size() - 1
     );
+}*/
+
+int main() {
+    exactinit();
+    std::vector<double> point_data{
+        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
+    };
+    std::vector<uint32_t> indices{
+        3, 2, 2, 1, 1, 0, 0, 3, 4, 5, 5, 6, 6, 7, 7, 4, 0, 1, 1, 5, 5, 4, 4, 0,
+        1, 2, 2, 6, 6, 5, 5, 1, 3, 7, 7, 6, 6, 2, 2, 3, 4, 7, 7, 3, 3, 0, 0, 4,
+    };
+    std::vector<uint32_t> seperator{0, 8, 16, 24, 32, 40, 48};
+    std::vector<double> axes{
+        0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1,  0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0,
+    };
+    uint32_t n_triangles = 0;
+    double* out_points;
+    double* out_axes;
+    uint32_t* out_polygons;
+    uint32_t* out_seperators;
+    const auto n_polygons = make_polyhedral_mesh(
+        point_data.data(), 8, indices.data(), axes.data(), seperator.data(), static_cast<uint32_t>(seperator.size() - 1), &out_points, &out_polygons, &out_axes, &out_seperators
+    );
+    writePolygon("123.obj", out_points, 8, out_polygons, out_seperators, n_polygons);
+    delete [] out_points;
+    delete [] out_axes;
+    delete[] out_polygons;
+    delete[] out_seperators;
 }
