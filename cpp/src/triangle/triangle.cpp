@@ -76,7 +76,7 @@ inline uint32_t dest(const Mesh* m, const HEdge& he) { return m->triangles[he.tr
 
 inline uint32_t apex(const Mesh* m, const HEdge& he) { return m->triangles[he.tri].data[he.ori]; }
 
-inline const double* point(const double* points, const uint32_t idx) { return &points[idx << 1]; }
+static inline const double* point(const double* points, const uint32_t idx) { return &points[idx << 1]; }
 
 inline void prev_self(HEdge& he) { he.ori = (he.ori + 2) % 3; }
 

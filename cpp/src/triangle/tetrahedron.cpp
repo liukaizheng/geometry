@@ -59,7 +59,7 @@ struct SortOption {
     double ratio = 0.125;
 };
 
-inline const double* point(const double* points, const uint32_t index) { return &points[index * 3]; }
+static inline const double* point(const double* points, const uint32_t index) { return &points[index * 3]; }
 
 inline uint32_t hilbert_split(
     const double* points, uint32_t* indices, const uint32_t n_points, const uint32_t gc0, const uint32_t gc1,
