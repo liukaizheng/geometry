@@ -1,0 +1,17 @@
+{
+  "name": "@qunhe/geometry",
+  "version": "0.0.1",
+  "files": [
+    "geometry.wasm",
+    "geometry.js",
+    "geometry.d.ts"
+  ],
+  "module": "geometry.js",
+  "types": "geometry.d.ts",
+  "release": {
+    "scripts": {
+      "pre-release": "echo geometry pre-release"
+    },
+    "publishRoot": "."
+  }
+}
