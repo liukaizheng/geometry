@@ -1101,7 +1101,7 @@ void BSPComplex::complex_partition() {
     GraphCut g(
         static_cast<uint32_t>(cell_costs_external.size()), cell_costs_external.data(), cell_costs_internal.data()
     );
-    constexpr double w = 0.1;
+    constexpr double w = 1.1;
     for (uint32_t i = 0; i < faces.size(); i++) {
         BSPFace& face = faces[i];
         if (face.color == FaceColor::BLACK) {
@@ -1122,7 +1122,7 @@ void BSPComplex::complex_partition() {
         if (is_boundary) {
             g.add_edge(cell1, cell2, face_areas[i] * w, face_areas[i] * w);
         } else {
-            g.add_edge(cell1, cell2, face_areas[i], face_areas[i]);
+            g.add_edge(cell1, cell2, face_areas[i] * w, face_areas[i] * w);
         }
     }
     g.max_flow();
