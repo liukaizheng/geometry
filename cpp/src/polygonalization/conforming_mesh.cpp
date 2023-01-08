@@ -1,5 +1,5 @@
-#include <polygonalization/conforming_mesh.h>
 #include <polygonalization/bsp_complex.h>
+#include <polygonalization/conforming_mesh.h>
 #include <predicates/generic_point.h>
 
 #include <algorithm>
@@ -7,10 +7,8 @@
 #include <unordered_map>
 #include <vector>
 
-using Edges = std::vector<std::unordered_map<uint32_t, std::vector<std::array<uint32_t, 2>>>>;
-
-inline Edges make_edges(const Constraints& constraints, const uint32_t n_points) {
-    Edges edges(n_points - 1);
+inline static decltype(auto) make_triangles_edges(const Constraints& constraints, const uint32_t n_points) {
+    std::vector<std::unordered_map<uint32_t, std::vector<std::array<uint32_t, 2>>>> edges(n_points - 1);
     for (uint32_t i = 0; i < constraints.n_triangles; i++) {
         const uint32_t* triangle = &constraints.triangles[i * 3];
         for (uint32_t j = 0; j < 3; j++) {
@@ -97,7 +95,7 @@ inline void add_virtual_constraint(
 }
 
 void place_virtual_constraints(const TetMesh& mesh, Constraints& constraints) {
-    auto edges = make_edges(constraints, mesh.n_points);
+    auto edges = make_triangles_edges(constraints, mesh.n_points);
     for (auto&& map : std::move(edges)) {
         if (map.empty()) {
             continue;
@@ -149,7 +147,6 @@ inline TriFace triangle_at_tet(TetMesh& mesh, const uint32_t* tri, std::vector<u
             if (!mesh.is_hull_tet(nei) && !mesh.mark_tested(nei)) {
                 push(nei);
             }
-            
         }
     }
 

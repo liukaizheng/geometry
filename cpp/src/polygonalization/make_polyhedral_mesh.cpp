@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 
 #include <polygonalization/bsp_complex.h>
 #include <polygonalization/conforming_mesh.h>
@@ -92,6 +93,23 @@ static void remove_duplicates(
     }
 }
 
+static decltype(auto) get_edge_parents(std::vector<uint32_t>& edge_data, const uint32_t n_points) {
+    std::vector<std::unordered_map<uint32_t, uint32_t>> edge_parents(n_points - 1);
+    for (uint32_t i = 0; i < edge_data.size(); i += 2) {
+        uint32_t pi = edge_data[i];
+        uint32_t pj = edge_data[i + 1];
+        if (pi > pj) {
+            std::swap(pi, pj);
+        }
+        auto& map = edge_parents[pi];
+        auto it = map.find(pj);
+        if (it == map.end()) {
+            map.emplace(pj, i >> 1);
+        }
+    }
+    return edge_parents;
+}
+
 extern "C" {
 uint32_t make_polyhedral_mesh(
     const double* points, const uint32_t n_points, const uint32_t* edge_data, const double* axis_data,
@@ -105,6 +123,8 @@ uint32_t make_polyhedral_mesh(
     for (uint32_t i = 0; i < edges.size(); i++) {
         edges[i] = pmap[edge_data[i]];
     }
+    const auto edge_parents = get_edge_parents(edges, static_cast<uint32_t>(unique_points.size() - 1));
+    
     uint32_t n_triangles;
     const uint32_t* triangles =
         triangulate_polygon_soup(unique_points.data(), edges.data(), axis_data, seperator, n_polygons, &n_triangles);
@@ -117,27 +137,27 @@ uint32_t make_polyhedral_mesh(
         out_polys_vec, axes_vec, out_seperator_vec
     );
     delete[] triangles;
-        
+
     // points
     auto out_pts = std::make_unique<double[]>(out_pts_vec.size());
     std::copy(out_pts_vec.begin(), out_pts_vec.end(), out_pts.get());
     *out_points = out_pts.release();
-    
+
     // polygons
     auto out_polys = std::make_unique<uint32_t[]>(out_polys_vec.size());
     std::copy(out_polys_vec.begin(), out_polys_vec.end(), out_polys.get());
     *out_polygons = out_polys.release();
-    
+
     // axes
     auto axes = std::make_unique<double[]>(axes_vec.size());
     std::copy(axes_vec.begin(), axes_vec.end(), axes.get());
     *out_axis_data = axes.release();
-    
+
     // seperators
     auto out_seps = std::make_unique<uint32_t[]>(out_seperator_vec.size());
     std::copy(out_seperator_vec.begin(), out_seperator_vec.end(), out_seps.get());
     *out_seperators = out_seps.release();
-    
+
     return static_cast<uint32_t>(out_seperator_vec.size() - 1);
 }
 }
