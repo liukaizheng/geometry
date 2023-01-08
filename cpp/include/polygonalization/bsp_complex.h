@@ -4,6 +4,8 @@
 #include <predicates/generic_point.h>
 #include <triangle/tetrahedron.h>
 
+#include <unordered_map>
+
 enum class FaceColor { BLACK, WHITE, GRAY };
 
 struct BSPEdge {
@@ -11,15 +13,18 @@ struct BSPEdge {
                               TriFace::INVALID, TriFace::INVALID, TriFace::INVALID};
     std::array<uint32_t, 2> vertices;
     uint32_t face;
+    uint32_t parent;
 
     BSPEdge() {}
-    BSPEdge(const uint32_t ev1, const uint32_t ev2) {
+    BSPEdge(const uint32_t ev1, const uint32_t ev2, const uint32_t p) {
         mesh_vertices[0] = vertices[0] = ev1;
         mesh_vertices[1] = vertices[1] = ev2;
+        parent = p;
     }
-    BSPEdge(const uint32_t ev1, const uint32_t ev2, const uint32_t* tri1, const uint32_t* tri2) {
+    BSPEdge(const uint32_t ev1, const uint32_t ev2, const uint32_t p, const uint32_t* tri1, const uint32_t* tri2) {
         vertices[0] = ev1;
         vertices[1] = ev2;
+        parent = p;
         mesh_vertices[0] = tri1[0];
         mesh_vertices[1] = tri1[1];
         mesh_vertices[2] = tri1[2];
@@ -45,6 +50,7 @@ struct BSPEdge {
         e.vertices[1] = vid;
         vertices[0] = vid;
         e.face = face;
+        e.parent = parent;
         return e;
     }
 };
@@ -65,9 +71,9 @@ struct BSPCell {
     std::vector<uint32_t> faces;
     std::vector<uint32_t> constraints;
     uint8_t place = 0; // 0 out, 1 in
-    
+
     BSPCell() {}
-    
+
     void remove_face(const uint32_t pos) {
         if (pos + 1 != faces.size()) {
             faces[pos] = faces.back();
@@ -79,6 +85,7 @@ struct BSPCell {
 struct BSPComplex {
     std::vector<GenericPoint3D*> vertices;
     std::vector<BSPEdge> edges;
+    uint32_t n_ori_edges;
     std::vector<BSPFace> faces;
     std::vector<BSPCell> cells;
     const Constraints* constraints;
@@ -88,6 +95,7 @@ struct BSPComplex {
 
     BSPComplex(
         const TetMesh& mesh, const Constraints* constraints,
+        const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents,
         std::array<std::vector<std::vector<uint32_t>>, 5>&& tet_maps
     );
     ~BSPComplex() {
@@ -99,5 +107,8 @@ struct BSPComplex {
     void split_cell(const uint32_t cid);
     void decide_color();
     void complex_partition();
-    void extract_skin(std::vector<double>& points, std::vector<uint32_t>& faces, std::vector<double>& axes, std::vector<uint32_t>& seperator);
+    void extract_skin(
+        std::vector<double>& points, std::vector<uint32_t>& faces, std::vector<double>& axes,
+        std::vector<uint32_t>& seperator
+    );
 };

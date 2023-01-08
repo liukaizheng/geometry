@@ -10,7 +10,7 @@
 
 
 void make_polyhedral_mesh_from_triangles(
-    const double* points, const uint32_t n_points, const uint32_t* triangles, const uint32_t n_triangles,
+    const double* points, const uint32_t n_points, const uint32_t* triangles, const uint32_t n_triangles, const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents,
     std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<double>& axes,
     std::vector<uint32_t>& seperators
 ) {
@@ -28,7 +28,7 @@ void make_polyhedral_mesh_from_triangles(
     }};
     // clang-format on
     insert_constraints(mesh, constraints, tet_map.data());
-    BSPComplex complex{mesh, &constraints, std::move(tet_map)};
+    BSPComplex complex{mesh, &constraints, ori_edge_parents, std::move(tet_map)};
 
     for (uint32_t cid = 0; cid < complex.cells.size();) {
         if (complex.cells[cid].constraints.empty()) {
@@ -133,7 +133,7 @@ uint32_t make_polyhedral_mesh(
     std::vector<double> axes_vec;
     std::vector<uint32_t> out_seperator_vec;
     make_polyhedral_mesh_from_triangles(
-        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, out_pts_vec,
+        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, edge_parents, out_pts_vec,
         out_polys_vec, axes_vec, out_seperator_vec
     );
     delete[] triangles;

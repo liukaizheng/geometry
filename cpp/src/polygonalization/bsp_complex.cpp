@@ -39,7 +39,7 @@ inline uint32_t find_tet_edge(
     } else {
         const uint32_t eid = static_cast<uint32_t>(edges.size());
         map.emplace(ev2, eid);
-        edges.emplace_back(ev1, ev2);
+        edges.emplace_back(ev1, ev2, eid);
         return eid;
     }
 }
@@ -65,7 +65,9 @@ inline void fill_face_color(
 }
 
 BSPComplex::BSPComplex(
-    const TetMesh& mesh, const Constraints* c, std::array<std::vector<std::vector<uint32_t>>, 5>&& tet_maps
+    const TetMesh& mesh, const Constraints* c,
+    const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents,
+    std::array<std::vector<std::vector<uint32_t>>, 5>&& tet_maps
 )
     : constraints(c) {
     vertices.reserve(mesh.n_points);
@@ -73,6 +75,7 @@ BSPComplex::BSPComplex(
         const double* p = mesh.point(i);
         vertices.emplace_back(new ExplicitPoint3D(p[0], p[1], p[2]));
     }
+
     verts_oris.resize(vertices.size(), 2);
     std::vector<uint32_t> new_order;
     const uint32_t n_cells = remove_ghost_tets(mesh, new_order);
@@ -81,6 +84,35 @@ BSPComplex::BSPComplex(
     faces.reserve(cells.size() << 1);
 
     std::vector<std::unordered_map<uint32_t, uint32_t>> edge_map(mesh.n_points - 1);
+    auto push_edge = [&edge_map, &ori_edge_parents, this](uint32_t pa, uint32_t pb) {
+        if (pa > pb) {
+            std::swap(pa, pb);
+        }
+        if (edge_map[pa].find(pb) != edge_map[pa].end()) {
+            return;
+        }
+        const auto& map = ori_edge_parents[pa];
+        if (map.find(pb) != map.end()) {
+            const uint32_t eid = static_cast<uint32_t>(edges.size());
+            edges.emplace_back(pa, pb, eid);
+            edge_map[pa].emplace(pb, eid);
+        }
+    };
+    for (uint32_t i = 0; i < mesh.tets.size(); i++) {
+        const uint32_t cell_ind = new_order[i];
+        if (cell_ind == TriFace::INVALID) {
+            continue;
+        }
+        const Tet& tet = mesh.tets[i];
+        for (uint32_t j = 0; j < 3; j++) {
+            const uint32_t va = tet.data[j];
+            for (uint32_t k = j + 1; k < 4; k++) {
+                push_edge(va, tet.data[k]);
+            }
+        }
+    }
+    n_ori_edges = static_cast<uint32_t>(edges.size());
+
     std::vector<uint32_t> tet_edges;
     tet_edges.reserve(6);
     for (uint32_t i = 0; i < mesh.tets.size(); i++) {
@@ -453,7 +485,7 @@ inline void add_common_edge(
     BSPFace& new_face = complex->faces[new_fid];
     const uint32_t new_eid = static_cast<uint32_t>(complex->edges.size());
     complex->edges.emplace_back(
-        endpts[0], endpts[1], face.mesh_vertices, &complex->constraints->triangles[constr_id * 3]
+        endpts[0], endpts[1], new_eid, face.mesh_vertices, &complex->constraints->triangles[constr_id * 3]
     );
     complex->edge_visit.emplace_back(0);
     complex->edges.back().face = fid;
@@ -1239,8 +1271,8 @@ void BSPComplex::extract_skin(
         }
         std::queue<std::pair<uint32_t, bool>> queue; // <face, reversed>
 
-        const auto push_queue = [this, &queue, &face_visit, &face_verts, &pmap, &seperator,
-                                 &out_faces, &axes](const uint32_t fi, bool reversed) {
+        const auto push_queue = [this, &queue, &face_visit, &face_verts, &pmap, &seperator, &out_faces,
+                                 &axes](const uint32_t fi, bool reversed) {
             queue.emplace(fi, reversed);
             face_visit[fi] = true;
             if (reversed) {
@@ -1261,7 +1293,7 @@ void BSPComplex::extract_skin(
             x_axis = (v1 - v0).normalized();
             const auto z_axis = x_axis.cross((v2 - v0)).normalized();
             Vec3 y_axis(&axes[axes.size() - 3]);
-            y_axis= z_axis.cross(x_axis).eval();
+            y_axis = z_axis.cross(x_axis).eval();
         };
         // assert( ori != 0);
         push_queue(fid, ori < 0);
