@@ -66,13 +66,14 @@ uint32_t* triangulate_polygon(
     return triangle_data;
 }
 
-uint32_t* triangulate_polygon_soup(
+uint32_t triangulate_polygon_soup(
     const double* points, const uint32_t* edge_data, const double* axis_data, const uint32_t* seperator,
-    const uint32_t n_polygon, uint32_t* n_triangles
+    const uint32_t n_polygon, uint32_t** triangles, uint32_t** triangle_parents
 ) {
     std::vector<uint32_t> triangle_data;
     const uint32_t* segment_ptr = edge_data;
     const double* axis_ptr = axis_data;
+    std::vector<uint32_t> triangle_parent_vec;
     for (uint32_t i = 0; i < n_polygon; i++) {
         const uint32_t double_n_segments = seperator[i + 1] - seperator[i];
         const double* origin = axis_ptr;
@@ -84,14 +85,23 @@ uint32_t* triangulate_polygon_soup(
         const uint32_t* tri_data =
             triangulate_polygon(points, segment_ptr, double_n_segments >> 1, origin, x_axis, y_axis, &n_poly_tri);
         std::copy(tri_data, tri_data + n_poly_tri * 3, std::back_inserter(triangle_data));
+        triangle_parent_vec.resize(triangle_parent_vec.size() + n_poly_tri, i);
         delete[] tri_data;
         segment_ptr += double_n_segments;
         axis_ptr += 3;
     }
-    *n_triangles = static_cast<uint32_t>(triangle_data.size() / 3);
-    auto result = std::make_unique<uint32_t[]>(triangle_data.size());
-    std::copy(triangle_data.begin(), triangle_data.end(), &result[0]);
-    return result.release();
+
+    const auto n_triangles = static_cast<uint32_t>(triangle_data.size() / 3);
+
+    auto triangles_ptr = std::make_unique<uint32_t[]>(triangle_data.size());
+    std::copy(triangle_data.begin(), triangle_data.end(), &triangles_ptr[0]);
+    *triangles = triangles_ptr.release();
+
+    auto triangle_parents_ptr = std::make_unique<uint32_t[]>(triangle_parent_vec.size());
+    std::copy(triangle_parent_vec.begin(), triangle_parent_vec.end(), &triangle_parents_ptr[0]);
+    *triangle_parents = triangle_parents_ptr.release();
+
+    return n_triangles;
 }
 #ifdef EMSCRIPTEN
 }

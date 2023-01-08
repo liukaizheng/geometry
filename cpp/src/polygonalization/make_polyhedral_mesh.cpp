@@ -10,7 +10,8 @@
 
 
 void make_polyhedral_mesh_from_triangles(
-    const double* points, const uint32_t n_points, const uint32_t* triangles, const uint32_t n_triangles, const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents,
+    const double* points, const uint32_t n_points, const uint32_t* triangles, const uint32_t n_triangles,
+    const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents, const uint32_t* face_parents,
     std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<double>& axes,
     std::vector<uint32_t>& seperators
 ) {
@@ -40,7 +41,7 @@ void make_polyhedral_mesh_from_triangles(
 
     complex.decide_color();
     complex.complex_partition();
-    complex.extract_skin(out_points, out_faces, axes, seperators);
+    complex.extract_skin(face_parents, out_points, out_faces, axes, seperators);
 }
 
 static void remove_duplicates(
@@ -124,19 +125,21 @@ uint32_t make_polyhedral_mesh(
         edges[i] = pmap[edge_data[i]];
     }
     const auto edge_parents = get_edge_parents(edges, static_cast<uint32_t>(unique_points.size() - 1));
-    
-    uint32_t n_triangles;
-    const uint32_t* triangles =
-        triangulate_polygon_soup(unique_points.data(), edges.data(), axis_data, seperator, n_polygons, &n_triangles);
+
+    uint32_t *triangles = nullptr, *triangle_parents = nullptr;
+    const uint32_t n_triangles = triangulate_polygon_soup(
+        unique_points.data(), edges.data(), axis_data, seperator, n_polygons, &triangles, &triangle_parents
+    );
     std::vector<double> out_pts_vec;
     std::vector<uint32_t> out_polys_vec;
     std::vector<double> axes_vec;
     std::vector<uint32_t> out_seperator_vec;
     make_polyhedral_mesh_from_triangles(
-        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, edge_parents, out_pts_vec,
-        out_polys_vec, axes_vec, out_seperator_vec
+        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, edge_parents,triangle_parents,
+        out_pts_vec, out_polys_vec, axes_vec, out_seperator_vec
     );
     delete[] triangles;
+    delete[] triangle_parents;
 
     // points
     auto out_pts = std::make_unique<double[]>(out_pts_vec.size());

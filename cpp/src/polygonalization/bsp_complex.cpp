@@ -1,10 +1,11 @@
 #include <graphcut/graphcut.h>
-#include <iterator>
 #include <polygonalization/bsp_complex.h>
+#include <utils/disjoint-set.h>
 
 #include <Eigen/Dense>
 
 #include <algorithm>
+#include <iterator>
 #include <numeric>
 #include <queue>
 #include <tuple>
@@ -135,19 +136,19 @@ BSPComplex::BSPComplex(
             const uint32_t adj_cell_ind = new_order[nei.tet];
             if (tet_face_is_new(i, nei.tet, adj_cell_ind)) {
                 const uint32_t verts[]{mesh.org(nei), mesh.dest(nei), mesh.apex(nei)};
-                const uint32_t face_ind = static_cast<uint32_t>(faces.size());
-                faces.emplace_back(verts, cell_ind, adj_cell_ind);
-                cells[cell_ind].faces.emplace_back(face_ind);
+                const uint32_t fid = static_cast<uint32_t>(faces.size());
+                faces.emplace_back(verts, fid, cell_ind, adj_cell_ind);
+                cells[cell_ind].faces.emplace_back(fid);
                 if (adj_cell_ind != TriFace::INVALID) {
-                    cells[adj_cell_ind].faces.emplace_back(face_ind);
+                    cells[adj_cell_ind].faces.emplace_back(fid);
                 }
                 const uint32_t* edge_indices = &edgetbl[j * 3];
                 for (uint32_t k = 0; k < 3; k++) {
                     const uint32_t eid = tet_edges[edge_indices[k]];
                     faces.back().edges.emplace_back(eid);
-                    edges[eid].face = face_ind;
+                    edges[eid].face = fid;
                 }
-                fill_face_color(i, face_ind, tet_maps[j], this);
+                fill_face_color(i, fid, tet_maps[j], this);
             }
         }
     }
@@ -497,7 +498,7 @@ inline void
 split_face(BSPComplex* complex, const uint32_t fid, const uint32_t constr_id, const std::vector<uint32_t>& face_verts) {
     const BSPFace& face = complex->faces[fid];
     const uint32_t new_fid = static_cast<uint32_t>(complex->faces.size());
-    complex->faces.emplace_back(face.mesh_vertices, face.cells[0], face.cells[1]);
+    complex->faces.emplace_back(face.mesh_vertices, face.parent, face.cells[0], face.cells[1]);
     complex->faces.back().color = face.color;
     complex->faces.back().coplanar_constraints = face.coplanar_constraints;
 
@@ -665,7 +666,7 @@ inline void add_common_face(
     const std::vector<uint32_t>& cell_edges
 ) {
     const uint32_t new_fid = static_cast<uint32_t>(complex->faces.size());
-    complex->faces.emplace_back(&complex->constraints->triangles[constr_id * 3], cid, new_cid);
+    complex->faces.emplace_back(&complex->constraints->triangles[constr_id * 3], new_fid, cid, new_cid);
     complex->faces.back().color = complex->constraints->is_virtual(constr_id) ? FaceColor::WHITE : FaceColor::GRAY;
     std::vector<uint32_t> comm_edges;
     const auto& vert_oris = complex->verts_oris;
@@ -1163,9 +1164,78 @@ void BSPComplex::complex_partition() {
     }
 }
 
+static inline void merge_faces(
+    BSPComplex* complex, const uint32_t* constraint_parents, const std::vector<std::pair<uint32_t, bool>>& kept_faces,
+    const std::vector<std::vector<std::pair<uint32_t, bool>>>& ef_map
+) {
+    std::unordered_map<uint32_t, uint32_t> face_map;
+    face_map.reserve(kept_faces.size());
+    for (const auto& pair : kept_faces) {
+        face_map.emplace(pair.first, static_cast<uint32_t>(face_map.size()));
+    }
+
+    auto same_plane = [&constraint_parents](const BSPFace& fa, const BSPFace& fb) -> bool {
+        if (fa.parent == fb.parent) {
+            return true;
+        }
+        for (const uint32_t fa_cid : fa.coplanar_constraints) {
+            const auto& fb_constrs = fb.coplanar_constraints;
+            auto it = std::find_if(
+                fb_constrs.begin(), fb_constrs.end(),
+                [&constraint_parents, fa_cid](const uint32_t fb_cid) {
+                    if (constraint_parents[fb_cid] == constraint_parents[fa_cid]) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            );
+            if (it != fb_constrs.end()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    DisjointSet ds(static_cast<uint32_t>(kept_faces.size()));
+    for (const auto& pa : kept_faces) {
+        const uint32_t fa_id = pa.first;
+        const auto& fa = complex->faces[fa_id];
+        const uint32_t fa_id_ind = face_map[fa_id];
+        for (const uint32_t eid : fa.edges) {
+            for (const auto& pb : ef_map[eid]) {
+                const uint32_t fb_id = pb.first;
+                if (fa_id == fb_id) {
+                    continue;
+                }
+                const uint32_t fb_id_ind = face_map[fb_id];
+                if (fb_id_ind < fa_id_ind) {
+                    continue;
+                }
+                const auto& fb = complex->faces[fb_id];
+                if (same_plane(fa, fb)) {
+                    ds.merge(fa_id_ind, fb_id_ind);
+                }
+            }
+        }
+    }
+    std::unordered_map<uint32_t, std::vector<uint32_t>> face_group_map;
+    face_group_map.reserve(ds.n_groups);
+    for (uint32_t i = 0; i < kept_faces.size(); i++) {
+        const auto gid = ds.find_set(i);
+        auto it = face_group_map.find(gid);
+        if (it != face_group_map.end()) {
+            it->second.emplace_back(i);
+        } else {
+            face_group_map.emplace(gid, std::vector<uint32_t>{i});
+        }
+    }
+    const int a = 2;
+}
+
 void BSPComplex::extract_skin(
-    std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<double>& axes,
-    std::vector<uint32_t>& seperator
+    const uint32_t* constraint_parents, std::vector<double>& out_points, std::vector<uint32_t>& out_faces,
+    std::vector<double>& axes, std::vector<uint32_t>& seperator
 ) {
     std::vector<uint32_t> kept;                                               // kept faces
     std::vector<std::vector<std::pair<uint32_t, bool>>> ef_map(edges.size()); // pair: <fid, reversed>
@@ -1184,8 +1254,8 @@ void BSPComplex::extract_skin(
             const uint32_t eid = face.edges[j];
             if (edge_visit[eid] == 0) {
                 edge_visit[eid] = 1;
-                vert_visit[edges[eid].vertices[0]] = 1;
-                vert_visit[edges[eid].vertices[1]] = 1;
+                // vert_visit[edges[eid].vertices[0]] = 1;
+                // vert_visit[edges[eid].vertices[1]] = 1;
             }
             if (edges[eid].vertices[0] == pvid) {
                 ef_map[eid].emplace_back(i, false);
@@ -1199,27 +1269,29 @@ void BSPComplex::extract_skin(
         }
     }
 
-    const uint32_t n_points = static_cast<uint32_t>(std::count(vert_visit.begin(), vert_visit.end(), 1));
-    out_points.resize(n_points * 3);
-    std::vector<uint32_t> pmap(vertices.size());
-    uint32_t count = 0;
-    for (uint32_t i = 0; i < vertices.size(); i++) {
-        if (vert_visit[i] == 0) {
-            continue;
-        }
-        double* p = &out_points[count * 3];
-        pmap[i] = count++;
-        vertices[i]->to_double(p);
-    }
-    std::fill(vert_visit.begin(), vert_visit.end(), 0);
-    std::fill(edge_visit.begin(), edge_visit.end(), 0);
+    // const uint32_t n_points = static_cast<uint32_t>(std::count(vert_visit.begin(), vert_visit.end(), 1));
+    // out_points.resize(n_points * 3);
+    // std::vector<uint32_t> pmap(vertices.size());
+    // uint32_t count = 0;
+    // for (uint32_t i = 0; i < vertices.size(); i++) {
+    //     if (vert_visit[i] == 0) {
+    //         continue;
+    //     }
+    //     double* p = &out_points[count * 3];
+    //     pmap[i] = count++;
+    //     vertices[i]->to_double(p);
+    // }
+    // std::fill(vert_visit.begin(), vert_visit.end(), 0);
+    // std::fill(edge_visit.begin(), edge_visit.end(), 0);
 
-    out_faces.reserve(kept.size() * 3);
-    axes.reserve(kept.size() * 6);
-    seperator.reserve(kept.size() + 1);
-    seperator.emplace_back(0);
+    // out_faces.reserve(kept.size() * 3);
+    // axes.reserve(kept.size() * 6);
+    // seperator.reserve(kept.size() + 1);
+    // seperator.emplace_back(0);
     std::vector<bool> face_visit(faces.size(), false);
     std::vector<uint32_t> face_verts;
+    std::vector<std::pair<uint32_t, bool>> oriented_faces;
+    oriented_faces.reserve(kept.size());
     for (const uint32_t fid : kept) {
         if (face_visit[fid]) {
             continue;
@@ -1271,14 +1343,11 @@ void BSPComplex::extract_skin(
         }
         std::queue<std::pair<uint32_t, bool>> queue; // <face, reversed>
 
-        const auto push_queue = [this, &queue, &face_visit, &face_verts, &pmap, &seperator, &out_faces,
-                                 &axes](const uint32_t fi, bool reversed) {
+        const auto push_queue = [&queue, &face_visit, &oriented_faces](const uint32_t fi, bool reversed) {
             queue.emplace(fi, reversed);
             face_visit[fi] = true;
-            if (reversed) {
-                std::reverse(face_verts.begin(), face_verts.end());
-            }
-            seperator.emplace_back(seperator.back() + static_cast<uint32_t>(face_verts.size()));
+            oriented_faces.emplace_back(fi, reversed);
+            /* seperator.emplace_back(seperator.back() + static_cast<uint32_t>(face_verts.size()));
             for (const uint32_t vid : face_verts) {
                 out_faces.emplace_back(pmap[vid]);
             }
@@ -1293,7 +1362,7 @@ void BSPComplex::extract_skin(
             x_axis = (v1 - v0).normalized();
             const auto z_axis = x_axis.cross((v2 - v0)).normalized();
             Vec3 y_axis(&axes[axes.size() - 3]);
-            y_axis = z_axis.cross(x_axis).eval();
+            y_axis = z_axis.cross(x_axis).eval();*/
         };
         // assert( ori != 0);
         push_queue(fid, ori < 0);
@@ -1315,11 +1384,10 @@ void BSPComplex::extract_skin(
                     if (face_visit[nfi]) {
                         continue;
                     }
-                    face_verts.clear();
-                    face_vertices(this, faces[nfi], face_verts);
                     push_queue(nfi, e_rev == nrev);
                 }
             }
         }
     }
+    merge_faces(this, constraint_parents, oriented_faces, ef_map);
 }

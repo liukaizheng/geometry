@@ -60,11 +60,13 @@ struct BSPFace {
     uint32_t cells[2];
     std::vector<uint32_t> coplanar_constraints;
     uint32_t mesh_vertices[3];
+    uint32_t parent;
     FaceColor color;
 
+
     BSPFace() {}
-    BSPFace(const uint32_t* verts, const uint32_t cell_ind, const uint32_t adj_cell_ind)
-        : cells{cell_ind, adj_cell_ind}, mesh_vertices{verts[0], verts[1], verts[2]} {}
+    BSPFace(const uint32_t* verts, const uint32_t p, const uint32_t cell_ind, const uint32_t adj_cell_ind)
+        : cells{cell_ind, adj_cell_ind}, mesh_vertices{verts[0], verts[1], verts[2]}, parent{p} {}
 };
 
 struct BSPCell {
@@ -108,7 +110,7 @@ struct BSPComplex {
     void decide_color();
     void complex_partition();
     void extract_skin(
-        std::vector<double>& points, std::vector<uint32_t>& faces, std::vector<double>& axes,
-        std::vector<uint32_t>& seperator
+        const uint32_t* constraint_parents, std::vector<double>& points, std::vector<uint32_t>& faces,
+        std::vector<double>& axes, std::vector<uint32_t>& seperator
     );
 };
