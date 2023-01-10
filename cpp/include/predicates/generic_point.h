@@ -139,6 +139,7 @@ class GenericPoint3D {
 
     // return true when three points are not aligned
     static bool mis_alignment(const double* p, const double* q, const double* r);
+    static bool mis_alignment(const GenericPoint3D& p, const GenericPoint3D& q, const GenericPoint3D& r);
 
     // return true when points p and q lies both on the same side of the straight line passing through v1 and v2.
     // Note. points and segment must be coplanar

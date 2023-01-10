@@ -4998,6 +4998,10 @@ bool GenericPoint3D::mis_alignment(const double* p, const double* q, const doubl
     return ::orient2d(pxz, qxz, rxz) != .0;
 }
 
+bool GenericPoint3D::mis_alignment(const GenericPoint3D& p, const GenericPoint3D& q, const GenericPoint3D& r) {
+    return orient_xy(p, q, r) || orient_yz(p, q, r) || orient_zx(p, q, r);
+}
+
 bool GenericPoint3D::same_half_plane(const double* p, const double* q, const double* v1, const double* v2) {
 
     // Projection on (x,y)-plane

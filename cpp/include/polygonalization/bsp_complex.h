@@ -93,7 +93,7 @@ struct BSPComplex {
     const Constraints* constraints;
     std::vector<int> verts_oris;
     std::vector<uint32_t> vert_visit;
-    std::vector<uint32_t> edge_visit;
+    std::vector<int> edge_visit;
 
     BSPComplex(
         const TetMesh& mesh, const Constraints* constraints,
