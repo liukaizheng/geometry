@@ -1166,15 +1166,124 @@ void BSPComplex::complex_partition() {
 
 struct EdgeGroup {
     std::vector<int> edges;
-    uint32_t index{TriFace::INVALID};
     EdgeGroup() {}
-    EdgeGroup(std::vector<int>&& vec, const uint32_t i) : edges{std::move(vec)}, index{i} {}
+    EdgeGroup(std::vector<int>&& vec) : edges{std::move(vec)} {}
 };
+
 
 static inline uint32_t edge_index(const int hid) { return static_cast<uint32_t>(std::abs(hid)) - 1; }
 
-static inline std::vector<int>
-make_edge_group(const BSPComplex* complex, std::vector<int>&& outlines, std::vector<uint32_t>& edge_in_group) {
+static inline std::vector<int> make_edge_groups(
+    const std::vector<std::vector<uint32_t>>& edge_group_in_loops, std::vector<int>&& half_edges,
+    std::vector<EdgeGroup>& edge_groups, std::vector<std::vector<int>>& loops, std::vector<uint32_t>& edge_in_group
+) {
+    auto insert_in_loops = [&edge_group_in_loops, &loops](const uint32_t gid, const uint32_t new_gid) {
+        const auto signed_gid = static_cast<int>(gid + 1);
+        const auto signed_new_gid = static_cast<int>(new_gid + 1);
+        for (const auto lid : edge_group_in_loops[gid]) {
+            auto& loop = loops[lid];
+            // must be found
+            const auto it =
+                std::find_if(loop.begin(), loop.end(), [signed_gid](const int x) { return std::abs(x) == signed_gid; });
+            if (*it == signed_gid) {
+                loop.emplace(it, signed_new_gid);
+            } else {
+                loop.emplace(it + 1, -signed_gid);
+            }
+        }
+    };
+
+    auto split_edge_group = [&edge_groups, &insert_in_loops](const uint32_t gid, const int hid, const uint32_t idx) {
+        auto* group = &edge_groups[gid];
+        if (hid == group->edges[idx]) {
+            if (idx == 0) {
+                return false;
+            }
+            // left: size -> idx, id -> new group id
+            // right: size -> (group.edges.size() - idx), id -> group.inde
+            auto left = std::move(group->edges);
+            group->edges = std::vector<int>(left.begin() + idx, left.end()); // right
+            left.resize(idx);
+            const auto new_gid = static_cast<uint32_t>(edge_groups.size());
+            edge_groups.emplace_back(std::move(left));
+            insert_in_loops(gid, new_gid);
+            return false;
+        } else {
+            if (idx + 1 == group->edges.size()) {
+                return true;
+            }
+            // right:
+            auto right = std::move(group->edges);
+            group->edges = std::vector<int>(right.begin(), right.begin() + idx + 1); // left
+            right.resize(right.size() - 1 - idx);
+            const auto new_gid = static_cast<uint32_t>(edge_groups.size());
+            edge_groups.emplace_back(std::move(right));
+            insert_in_loops(gid, new_gid);
+            return true;
+        }
+    };
+
+    std::vector<uint32_t> group_indices;
+    auto scout_split_edge = [&half_edges, &edge_groups, &group_indices,
+                             &split_edge_group](const uint32_t start_idx, const uint32_t gid) {
+        const auto hid = half_edges[start_idx];
+        // must be found
+        auto* group = &edge_groups[gid];
+        const auto it = std::find_if(group->edges.begin(), group->edges.end(), [abs_hid = std::abs(hid)](const int x) {
+            return std::abs(x) == abs_hid;
+        });
+        bool reversed = split_edge_group(
+            gid, half_edges[start_idx], static_cast<uint32_t>(std::distance(group->edges.begin(), it))
+        );
+        // edge_groups maybe be reallocated
+        group = &edge_groups[gid];
+        uint32_t i = start_idx;
+        uint32_t j = 0;
+        uint32_t idx = 0;
+        for (; i < half_edges.size() && j < group->edges.size(); i++, j++) {
+            idx = reversed ? static_cast<uint32_t>(group->edges.size() - 1 - j) : j;
+            if (std::abs(half_edges[i]) != std::abs(group->edges[idx])) {
+                break;
+            }
+        }
+        if (j != group->edges.size()) {
+            split_edge_group(gid, group->edges[idx] * (reversed ? -1 : 1), idx);
+            group_indices.emplace_back(static_cast<int>(edge_groups.size()) * (reversed ? -1 : 1));
+        } else {
+            group_indices.emplace_back(static_cast<int>(gid + 1) * (reversed ? -1 : 1));
+        }
+        return i;
+    };
+
+    std::vector<int> sub_edge_group;
+    for (uint32_t i = 0; i < half_edges.size();) {
+        const auto hid = half_edges[i];
+        const auto eid = edge_index(hid);
+        const auto gid = edge_in_group[eid];
+        if (gid == TriFace::INVALID) {
+            sub_edge_group.emplace_back(hid);
+            i += 1;
+        } else {
+            if (!sub_edge_group.empty()) {
+                edge_groups.emplace_back(std::move(sub_edge_group));
+                group_indices.emplace_back(static_cast<int>(edge_groups.size()));
+                sub_edge_group = {};
+            }
+            i = scout_split_edge(i, gid);
+        }
+    }
+    if (!sub_edge_group.empty()) {
+        edge_groups.emplace_back(std::move(sub_edge_group));
+        group_indices.emplace_back(static_cast<int>(edge_groups.size()));
+    }
+    return sub_edge_group;
+}
+
+static inline std::vector<int> make_loop_edge_groups(
+    const BSPComplex* complex, const std::vector<std::vector<uint32_t>>& edge_group_in_loops,
+    std::vector<int>&& outlines, std::vector<EdgeGroup>& edge_groups, std::vector<std::vector<int>>& loops,
+    std::vector<uint32_t>& edge_in_group
+) {
     const auto on_same_line = [&edge_in_group, complex](const int ha, const int hb) {
         // edge id
         const auto ea = edge_index(ha);
@@ -1212,19 +1321,29 @@ make_edge_group(const BSPComplex* complex, std::vector<int>&& outlines, std::vec
             group = {hid};
         }
     }
+
     if (on_same_line(group.back(), face_edge_groups[0].front())) {
+        const auto len = static_cast<int>(face_edge_groups[0].size());
         std::copy(group.begin(), group.end(), std::back_inserter(face_edge_groups[0]));
+        std::rotate(face_edge_groups[0].begin(), face_edge_groups[0].begin() + len, face_edge_groups[0].end());
     } else {
         face_edge_groups.emplace_back(std::move(group));
     }
+
+    std::vector<int> result;
+    for (auto& edges_group : std::move(face_edge_groups)) {
+        auto groups = make_edge_groups(edge_group_in_loops, std::move(edges_group), edge_groups, loops, edge_in_group);
+        std::copy(group.begin(), group.end(), std::back_inserter(result));
+    }
+    return result;
 }
 
 static inline void merge_face_edges(
     BSPComplex* complex, const std::vector<uint32_t>& face_groups,
     const std::vector<std::pair<uint32_t, bool>>& kept_faces,
-    const std::vector<std::vector<std::pair<uint32_t, bool>>>& ef_map,
-    std::vector<std::vector<std::pair<uint32_t, bool>>> fe_map, std::vector<EdgeGroup>& edge_groups,
-    std::vector<uint32_t>& edge_in_group
+    const std::vector<std::vector<std::pair<uint32_t, bool>>>& fe_map, std::vector<EdgeGroup>& edge_groups,
+    std::vector<uint32_t>& edge_in_group, std::vector<std::vector<int>>& loops,
+    std::vector<std::vector<uint32_t>>& edge_group_in_loops, std::vector<std::vector<uint32_t>>& face_loops
 ) {
     std::unordered_map<uint32_t, int> edge_map;
     for (const uint32_t fid_ind : face_groups) {
@@ -1254,7 +1373,7 @@ static inline void merge_face_edges(
         const auto hid = static_cast<int>(eid + 1) * (pair.second < 0 ? -1 : 1);
         half_edges.emplace_back(hid);
         const auto& edge = edges[eid];
-        const auto va = pair.second ? edge.vertices[1] : edge.vertices[0];
+        const auto va = pair.second < 0 ? edge.vertices[1] : edge.vertices[0];
         vert_out_edge_map.emplace(va, hid);
     }
 
@@ -1265,6 +1384,8 @@ static inline void merge_face_edges(
         const auto& edge = edges[eid];
         return hid < 0 ? edge.vertices[0] : edge.vertices[1];
     };
+
+    std::vector<uint32_t> loop_indices;
     for (const auto hid : half_edges) {
         const auto eid = edge_index(hid);
         if (edge_visit[eid] != 0) {
@@ -1276,19 +1397,32 @@ static inline void merge_face_edges(
             const auto vb = end_vertex(outlines.back());
             const auto next_hid = vert_out_edge_map[vb];
             const auto next_eid = edge_index(next_hid);
-            if (edge_visit[eid] != 0) {
+            if (edge_visit[next_eid] != 0) {
                 break;
             } else {
                 outlines.emplace_back(next_hid);
                 edge_visit[next_eid] = 1;
             }
         } while (true);
+        auto loop_edge_groups =
+            make_loop_edge_groups(complex, edge_group_in_loops, std::move(outlines), edge_groups, loops, edge_in_group);
+        const auto lid = static_cast<uint32_t>(loops.size());
+        for (const auto signed_gid : loop_edge_groups) {
+            edge_group_in_loops[edge_index(signed_gid)].emplace_back(lid);
+        }
+        loops.emplace_back(std::move(loop_edge_groups));
+        loop_indices.emplace_back(lid);
     }
+    for (const auto hid : half_edges) {
+        edge_visit[edge_index(hid)] = 0;
+    }
+    face_loops.emplace_back(std::move(loop_indices));
 }
 
 static inline void merge_faces(
     BSPComplex* complex, const uint32_t* constraint_parents, const std::vector<std::pair<uint32_t, bool>>& kept_faces,
-    const std::vector<std::vector<std::pair<uint32_t, bool>>>& ef_map
+    const std::vector<std::vector<std::pair<uint32_t, bool>>>& ef_map,
+    const std::vector<std::vector<std::pair<uint32_t, bool>>>& fe_map
 ) {
     std::unordered_map<uint32_t, uint32_t> face_map;
     face_map.reserve(kept_faces.size());
@@ -1341,16 +1475,26 @@ static inline void merge_faces(
             }
         }
     }
-    std::unordered_map<uint32_t, std::vector<uint32_t>> face_group_map;
-    face_group_map.reserve(ds.n_groups);
+    std::vector<std::vector<uint32_t>> face_group_map(kept_faces.size());
     for (uint32_t i = 0; i < kept_faces.size(); i++) {
         const auto gid = ds.find_set(i);
-        auto it = face_group_map.find(gid);
-        if (it != face_group_map.end()) {
-            it->second.emplace_back(i);
-        } else {
-            face_group_map.emplace(gid, std::vector<uint32_t>{i});
+        face_group_map[gid].emplace_back(i);
+    }
+
+    std::vector<std::vector<int>> loops;
+    std::vector<EdgeGroup> edge_groups;
+    std::vector<uint32_t> edge_in_group(complex->edges.size(), TriFace::INVALID);
+    std::vector<std::vector<uint32_t>> edge_group_in_loops;
+    std::vector<std::vector<uint32_t>> face_loops;
+
+    face_loops.reserve(ds.n_groups);
+    for (const auto& face_group : face_group_map) {
+        if (face_group.empty()) {
+            continue;
         }
+        merge_face_edges(
+            complex, face_group, kept_faces, fe_map, edge_groups, edge_in_group, loops, edge_group_in_loops, face_loops
+        );
     }
 }
 
@@ -1511,5 +1655,5 @@ void BSPComplex::extract_skin(
         }
     }
     std::fill(edge_visit.begin(), edge_visit.end(), 0);
-    merge_faces(this, constraint_parents, oriented_faces, ef_map);
+    merge_faces(this, constraint_parents, oriented_faces, ef_map, fe_map);
 }
