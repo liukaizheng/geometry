@@ -110,7 +110,8 @@ struct BSPComplex {
     void decide_color();
     void complex_partition();
     void extract_skin(
-        const uint32_t* constraint_parents, std::vector<double>& points, std::vector<uint32_t>& faces,
-        std::vector<double>& axes, std::vector<uint32_t>& seperator
+        const uint32_t* constraint_parents, std::vector<double>& points, std::vector<uint32_t>& loops,
+        std::vector<uint32_t>& loop_separators, std::vector<uint32_t>& face_loops,
+        std::vector<uint32_t>& face_loop_separators, std::vector<double>& axes
     );
 };

@@ -12,8 +12,8 @@
 void make_polyhedral_mesh_from_triangles(
     const double* points, const uint32_t n_points, const uint32_t* triangles, const uint32_t n_triangles,
     const std::vector<std::unordered_map<uint32_t, uint32_t>>& ori_edge_parents, const uint32_t* face_parents,
-    std::vector<double>& out_points, std::vector<uint32_t>& out_faces, std::vector<double>& axes,
-    std::vector<uint32_t>& seperators
+    std::vector<double>& out_points, std::vector<uint32_t>& out_loops, std::vector<uint32_t>& out_loop_separators,
+    std::vector<uint32_t>& out_faces, std::vector<uint32_t>& out_face_separators, std::vector<double>& axes
 ) {
     Constraints constraints(triangles, n_triangles);
     auto mesh = TetMesh::tetrahedralize(points, n_points, 1e-8);
@@ -41,7 +41,9 @@ void make_polyhedral_mesh_from_triangles(
 
     complex.decide_color();
     complex.complex_partition();
-    complex.extract_skin(face_parents, out_points, out_faces, axes, seperators);
+    complex.extract_skin(
+        face_parents, out_points, out_loops, out_loop_separators, out_faces, out_face_separators, axes
+    );
 }
 
 static void remove_duplicates(
@@ -114,8 +116,9 @@ static decltype(auto) get_edge_parents(std::vector<uint32_t>& edge_data, const u
 extern "C" {
 uint32_t make_polyhedral_mesh(
     const double* points, const uint32_t n_points, const uint32_t* edge_data, const double* axis_data,
-    const uint32_t* seperator, const uint32_t n_polygons, double** out_points, uint32_t** out_polygons,
-    double** out_axis_data, uint32_t** out_seperators
+    const uint32_t* seperator, const uint32_t n_polygons, double** out_points, uint32_t** out_loops,
+    uint32_t** out_loop_separators, uint32_t** out_polys, uint32_t** out_poly_separators,
+    double** out_axis_data
 ) {
     std::vector<double> unique_points;
     std::vector<uint32_t> pmap;
@@ -131,12 +134,14 @@ uint32_t make_polyhedral_mesh(
         unique_points.data(), edges.data(), axis_data, seperator, n_polygons, &triangles, &triangle_parents
     );
     std::vector<double> out_pts_vec;
+    std::vector<uint32_t> out_loops_vec;
+    std::vector<uint32_t> out_loop_separators_vec;
     std::vector<uint32_t> out_polys_vec;
+    std::vector<uint32_t> out_poly_seperators_vec;
     std::vector<double> axes_vec;
-    std::vector<uint32_t> out_seperator_vec;
     make_polyhedral_mesh_from_triangles(
-        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, edge_parents,triangle_parents,
-        out_pts_vec, out_polys_vec, axes_vec, out_seperator_vec
+        unique_points.data(), static_cast<uint32_t>(unique_points.size() / 3), triangles, n_triangles, edge_parents,
+        triangle_parents, out_pts_vec, out_loops_vec, out_loop_separators_vec, out_polys_vec, out_poly_seperators_vec, axes_vec 
     );
     delete[] triangles;
     delete[] triangle_parents;
@@ -146,21 +151,31 @@ uint32_t make_polyhedral_mesh(
     std::copy(out_pts_vec.begin(), out_pts_vec.end(), out_pts.get());
     *out_points = out_pts.release();
 
+    // loops
+    auto out_loops_ptr = std::make_unique<uint32_t[]>(out_loops_vec.size());
+    std::copy(out_loops_vec.begin(), out_loops_vec.end(), out_loops_ptr.get());
+    *out_loops= out_loops_ptr.release();
+        
+    // loop separators
+    auto out_loop_separators_ptr= std::make_unique<uint32_t[]>(out_loop_separators_vec.size());
+    std::copy(out_loop_separators_vec.begin(), out_loop_separators_vec.end(), out_loop_separators_ptr.get());
+    *out_loop_separators= out_loop_separators_ptr.release();
+
     // polygons
-    auto out_polys = std::make_unique<uint32_t[]>(out_polys_vec.size());
-    std::copy(out_polys_vec.begin(), out_polys_vec.end(), out_polys.get());
-    *out_polygons = out_polys.release();
+    auto out_polys_ptr = std::make_unique<uint32_t[]>(out_polys_vec.size());
+    std::copy(out_polys_vec.begin(), out_polys_vec.end(), out_polys_ptr.get());
+    *out_polys = out_polys_ptr.release();
+    
+    // polygon loop separators
+    auto out_poly_separators_ptr = std::make_unique<uint32_t[]>(out_poly_seperators_vec.size());
+    std::copy(out_poly_seperators_vec.begin(), out_poly_seperators_vec.end(), out_poly_separators_ptr.get());
+    *out_poly_separators= out_poly_separators_ptr.release();
 
     // axes
     auto axes = std::make_unique<double[]>(axes_vec.size());
     std::copy(axes_vec.begin(), axes_vec.end(), axes.get());
     *out_axis_data = axes.release();
 
-    // seperators
-    auto out_seps = std::make_unique<uint32_t[]>(out_seperator_vec.size());
-    std::copy(out_seperator_vec.begin(), out_seperator_vec.end(), out_seps.get());
-    *out_seperators = out_seps.release();
-
-    return static_cast<uint32_t>(out_seperator_vec.size() - 1);
+    return static_cast<uint32_t>(out_poly_seperators_vec.size() - 1);
 }
 }

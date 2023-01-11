@@ -1168,8 +1168,19 @@ struct EdgeGroup {
     std::vector<int> edges;
     EdgeGroup() {}
     EdgeGroup(std::vector<int>&& vec) : edges{std::move(vec)} {}
-};
 
+    uint32_t va(const std::vector<BSPEdge>& bsp_edges) {
+        const auto eid = static_cast<uint32_t>(std::abs(edges[0])) - 1;
+        const auto& edge = bsp_edges[eid];
+        return edges[0] < 0 ? edge.vertices[1] : edge.vertices[0];
+    }
+
+    uint32_t vb(const std::vector<BSPEdge>& bsp_edges) {
+        const auto eid = static_cast<uint32_t>(std::abs(edges.back())) - 1;
+        const auto& edge = bsp_edges[eid];
+        return edges.back() < 0 ? edge.vertices[0] : edge.vertices[1];
+    }
+};
 
 static inline uint32_t edge_index(const int hid) { return static_cast<uint32_t>(std::abs(hid)) - 1; }
 
@@ -1193,7 +1204,17 @@ static inline std::vector<int> make_edge_groups(
         }
     };
 
-    auto split_edge_group = [&edge_groups, &insert_in_loops](const uint32_t gid, const int hid, const uint32_t idx) {
+    auto push_edges_group = [&edge_groups, &edge_in_group](std::vector<int>&& edges) {
+        const auto new_gid = static_cast<uint32_t>(edge_groups.size());
+        for (const auto hid : edges) {
+            edge_in_group[edge_index(hid)] = new_gid;
+        }
+        edge_groups.emplace_back(std::move(edges));
+        return new_gid;
+    };
+
+    auto split_edge_group = [&edge_groups, &insert_in_loops,
+                             &push_edges_group](const uint32_t gid, const int hid, const uint32_t idx) {
         auto* group = &edge_groups[gid];
         if (hid == group->edges[idx]) {
             if (idx == 0) {
@@ -1204,8 +1225,7 @@ static inline std::vector<int> make_edge_groups(
             auto left = std::move(group->edges);
             group->edges = std::vector<int>(left.begin() + idx, left.end()); // right
             left.resize(idx);
-            const auto new_gid = static_cast<uint32_t>(edge_groups.size());
-            edge_groups.emplace_back(std::move(left));
+            const auto new_gid = push_edges_group(std::move(left));
             insert_in_loops(gid, new_gid);
             return false;
         } else {
@@ -1216,14 +1236,13 @@ static inline std::vector<int> make_edge_groups(
             auto right = std::move(group->edges);
             group->edges = std::vector<int>(right.begin(), right.begin() + idx + 1); // left
             right.resize(right.size() - 1 - idx);
-            const auto new_gid = static_cast<uint32_t>(edge_groups.size());
-            edge_groups.emplace_back(std::move(right));
+            const auto new_gid = push_edges_group(std::move(right));
             insert_in_loops(gid, new_gid);
             return true;
         }
     };
 
-    std::vector<uint32_t> group_indices;
+    std::vector<int> group_indices;
     auto scout_split_edge = [&half_edges, &edge_groups, &group_indices,
                              &split_edge_group](const uint32_t start_idx, const uint32_t gid) {
         const auto hid = half_edges[start_idx];
@@ -1265,7 +1284,8 @@ static inline std::vector<int> make_edge_groups(
             i += 1;
         } else {
             if (!sub_edge_group.empty()) {
-                edge_groups.emplace_back(std::move(sub_edge_group));
+                ;
+                push_edges_group(std::move(sub_edge_group));
                 group_indices.emplace_back(static_cast<int>(edge_groups.size()));
                 sub_edge_group = {};
             }
@@ -1273,10 +1293,10 @@ static inline std::vector<int> make_edge_groups(
         }
     }
     if (!sub_edge_group.empty()) {
-        edge_groups.emplace_back(std::move(sub_edge_group));
+        push_edges_group(std::move(sub_edge_group));
         group_indices.emplace_back(static_cast<int>(edge_groups.size()));
     }
-    return sub_edge_group;
+    return group_indices;
 }
 
 static inline std::vector<int> make_loop_edge_groups(
@@ -1333,7 +1353,7 @@ static inline std::vector<int> make_loop_edge_groups(
     std::vector<int> result;
     for (auto& edges_group : std::move(face_edge_groups)) {
         auto groups = make_edge_groups(edge_group_in_loops, std::move(edges_group), edge_groups, loops, edge_in_group);
-        std::copy(group.begin(), group.end(), std::back_inserter(result));
+        std::copy(groups.begin(), groups.end(), std::back_inserter(result));
     }
     return result;
 }
@@ -1407,6 +1427,7 @@ static inline void merge_face_edges(
         auto loop_edge_groups =
             make_loop_edge_groups(complex, edge_group_in_loops, std::move(outlines), edge_groups, loops, edge_in_group);
         const auto lid = static_cast<uint32_t>(loops.size());
+        edge_group_in_loops.resize(edge_groups.size());
         for (const auto signed_gid : loop_edge_groups) {
             edge_group_in_loops[edge_index(signed_gid)].emplace_back(lid);
         }
@@ -1422,7 +1443,9 @@ static inline void merge_face_edges(
 static inline void merge_faces(
     BSPComplex* complex, const uint32_t* constraint_parents, const std::vector<std::pair<uint32_t, bool>>& kept_faces,
     const std::vector<std::vector<std::pair<uint32_t, bool>>>& ef_map,
-    const std::vector<std::vector<std::pair<uint32_t, bool>>>& fe_map
+    const std::vector<std::vector<std::pair<uint32_t, bool>>>& fe_map, std::vector<double>& points,
+    std::vector<uint32_t>& loops_vec, std::vector<uint32_t>& loop_separators, std::vector<uint32_t>& face_loops_vec,
+    std::vector<uint32_t>& face_loop_separators, std::vector<double>& axes
 ) {
     std::unordered_map<uint32_t, uint32_t> face_map;
     face_map.reserve(kept_faces.size());
@@ -1488,6 +1511,7 @@ static inline void merge_faces(
     std::vector<std::vector<uint32_t>> face_loops;
 
     face_loops.reserve(ds.n_groups);
+    std::vector<std::vector<uint32_t>> face_groups;
     for (const auto& face_group : face_group_map) {
         if (face_group.empty()) {
             continue;
@@ -1495,12 +1519,82 @@ static inline void merge_faces(
         merge_face_edges(
             complex, face_group, kept_faces, fe_map, edge_groups, edge_in_group, loops, edge_group_in_loops, face_loops
         );
+        std::vector<uint32_t> faces{face_group};
+        for (uint32_t i = 0; i < faces.size(); i++) {
+            faces[i] = kept_faces[faces[i]].first;
+        }
+        face_groups.emplace_back(std::move(faces));
+    }
+
+    uint32_t n_half_edges = 0;
+    for (const auto& loop : loops) {
+        n_half_edges += static_cast<uint32_t>(loop.size());
+    }
+    loops_vec.resize(n_half_edges);
+
+    std::vector<uint32_t> kept_vertices;
+    kept_vertices.reserve(loops.size() * 3);
+    std::vector<uint32_t> vmap(complex->vertices.size(), TriFace::INVALID);
+    loop_separators.reserve(loops.size() + 1);
+    loop_separators.emplace_back(0);
+    for (const auto& loop : loops) {
+        std::transform(
+            loop.begin(), loop.end(), loops_vec.begin() + loop_separators.back(),
+            [&edge_groups, complex, &vmap, &kept_vertices](const auto signed_gid) {
+                const auto gid = edge_index(signed_gid);
+                const auto vid =
+                    signed_gid < 0 ? edge_groups[gid].vb(complex->edges) : edge_groups[gid].va(complex->edges);
+                uint32_t new_vid = vmap[vid];
+                if (new_vid == TriFace::INVALID) {
+                    new_vid = static_cast<uint32_t>(kept_vertices.size());
+                    kept_vertices.emplace_back(vid);
+                    vmap[vid] = new_vid;
+                }
+                return new_vid;
+            }
+        );
+        loop_separators.emplace_back(loop_separators.back() + static_cast<uint32_t>(loop.size()));
+    }
+
+    points.resize(kept_vertices.size() * 3);
+    for (uint32_t i = 0; i < kept_vertices.size(); i++) {
+        const auto vid = kept_vertices[i];
+        double* p = &points[i * 3];
+        complex->vertices[vid]->to_double(p);
+    }
+
+    face_loops_vec.reserve(loops.size());
+    face_loop_separators.reserve(face_loops.size() + 1);
+    face_loop_separators.emplace_back(0);
+    axes.reserve(face_loops.size() * 6);
+    using Vec3 = Eigen::Map<Eigen::Vector3d>;
+    using CVec3 = const Eigen::Map<const Eigen::Vector3d>;
+    for(uint32_t i = 0; i < face_loops.size(); i++) {
+        const auto fi = face_groups[i][0];
+        const BSPFace& f = complex->faces[fi];
+        CVec3 v0(complex->vertices[f.mesh_vertices[0]]->to_explicit().ptr());
+        CVec3 v1(complex->vertices[f.mesh_vertices[1]]->to_explicit().ptr());
+        CVec3 v2(complex->vertices[f.mesh_vertices[2]]->to_explicit().ptr());
+        axes.resize(axes.size() + 6);
+        Vec3 x_axis(&axes[axes.size() - 6]);
+        x_axis = (v1 - v0).normalized();
+        const auto z_axis = x_axis.cross((v2 - v0)).normalized();
+        Vec3 y_axis(&axes[axes.size() - 3]);
+        y_axis = z_axis.cross(x_axis).eval();
+
+        const auto& loop_indices = face_loops[i];
+        if (loop_indices.size() > 1) {
+            // TODO: sort loops
+        }
+        std::copy(loop_indices.begin(), loop_indices.end(), std::back_inserter(face_loops_vec));
+        face_loop_separators.emplace_back(face_loop_separators.back() + static_cast<uint32_t>(loop_indices.size()));
     }
 }
 
 void BSPComplex::extract_skin(
-    const uint32_t* constraint_parents, std::vector<double>& out_points, std::vector<uint32_t>& out_faces,
-    std::vector<double>& axes, std::vector<uint32_t>& seperator
+    const uint32_t* constraint_parents, std::vector<double>& points, std::vector<uint32_t>& loops,
+    std::vector<uint32_t>& loop_separators, std::vector<uint32_t>& face_loops,
+    std::vector<uint32_t>& face_loop_separators, std::vector<double>& axes
 ) {
     std::vector<uint32_t> kept;                                               // kept faces
     std::vector<std::vector<std::pair<uint32_t, bool>>> ef_map(edges.size()); // pair: <fid, reversed>
@@ -1519,8 +1613,6 @@ void BSPComplex::extract_skin(
             const uint32_t eid = face.edges[j];
             if (edge_visit[eid] == 0) {
                 edge_visit[eid] = 1;
-                // vert_visit[edges[eid].vertices[0]] = 1;
-                // vert_visit[edges[eid].vertices[1]] = 1;
             }
             if (edges[eid].vertices[0] == pvid) {
                 ef_map[eid].emplace_back(i, false);
@@ -1534,25 +1626,6 @@ void BSPComplex::extract_skin(
         }
     }
 
-    // const uint32_t n_points = static_cast<uint32_t>(std::count(vert_visit.begin(), vert_visit.end(), 1));
-    // out_points.resize(n_points * 3);
-    // std::vector<uint32_t> pmap(vertices.size());
-    // uint32_t count = 0;
-    // for (uint32_t i = 0; i < vertices.size(); i++) {
-    //     if (vert_visit[i] == 0) {
-    //         continue;
-    //     }
-    //     double* p = &out_points[count * 3];
-    //     pmap[i] = count++;
-    //     vertices[i]->to_double(p);
-    // }
-    // std::fill(vert_visit.begin(), vert_visit.end(), 0);
-    // std::fill(edge_visit.begin(), edge_visit.end(), 0);
-
-    // out_faces.reserve(kept.size() * 3);
-    // axes.reserve(kept.size() * 6);
-    // seperator.reserve(kept.size() + 1);
-    // seperator.emplace_back(0);
     std::vector<bool> face_visit(faces.size(), false);
     std::vector<uint32_t> face_verts;
     std::vector<std::pair<uint32_t, bool>> oriented_faces;
@@ -1612,22 +1685,6 @@ void BSPComplex::extract_skin(
             queue.emplace(fi, reversed);
             face_visit[fi] = true;
             oriented_faces.emplace_back(fi, reversed);
-            /* seperator.emplace_back(seperator.back() + static_cast<uint32_t>(face_verts.size()));
-            for (const uint32_t vid : face_verts) {
-                out_faces.emplace_back(pmap[vid]);
-            }
-            axes.resize(axes.size() + 6);
-            const BSPFace& f = this->faces[fi];
-            using Vec3 = Eigen::Map<Eigen::Vector3d>;
-            using CVec3 = const Eigen::Map<const Eigen::Vector3d>;
-            CVec3 v0(this->vertices[f.mesh_vertices[0]]->to_explicit().ptr());
-            CVec3 v1(this->vertices[f.mesh_vertices[1]]->to_explicit().ptr());
-            CVec3 v2(this->vertices[f.mesh_vertices[2]]->to_explicit().ptr());
-            Vec3 x_axis(&axes[axes.size() - 6]);
-            x_axis = (v1 - v0).normalized();
-            const auto z_axis = x_axis.cross((v2 - v0)).normalized();
-            Vec3 y_axis(&axes[axes.size() - 3]);
-            y_axis = z_axis.cross(x_axis).eval();*/
         };
         // assert( ori != 0);
         push_queue(fid, ori < 0);
@@ -1655,5 +1712,8 @@ void BSPComplex::extract_skin(
         }
     }
     std::fill(edge_visit.begin(), edge_visit.end(), 0);
-    merge_faces(this, constraint_parents, oriented_faces, ef_map, fe_map);
+    merge_faces(
+        this, constraint_parents, oriented_faces, ef_map, fe_map, points, loops, loop_separators, face_loops,
+        face_loop_separators, axes
+    );
 }

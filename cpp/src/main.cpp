@@ -1,3 +1,4 @@
+#include "nlohmann/json.hpp"
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <chrono>
@@ -21,8 +22,8 @@ uint32_t* triangulate_polygon_soup(
 
 uint32_t make_polyhedral_mesh(
     const double* points, const uint32_t n_points, const uint32_t* edge_data, const double* axis_data,
-    const uint32_t* seperator, const uint32_t n_polygons, double** out_points, uint32_t** out_polygons,
-    double** out_axis_data, uint32_t** out_seperators
+    const uint32_t* seperator, const uint32_t n_polygons, double** out_points, uint32_t** out_loops,
+    uint32_t** out_loop_separators, uint32_t** out_polys, uint32_t** out_poly_separators, double** out_axis_data
 );
 }
 
@@ -46,7 +47,8 @@ static void writePolygon(
     const uint32_t* seperator, const uint32_t n_polygon
 ) {
     std::ofstream file(name);
-    /* for (uint32_t i = 0; i < n_points; i++) {
+    file.precision(std::numeric_limits<double>::max_digits10);
+    for (uint32_t i = 0; i < n_points; i++) {
         file << "v " << data[3 * i] << " " << data[3 * i + 1] << " " << data[3 * i + 2] << "\n";
     }
     for (uint32_t i = 0; i < n_polygon; i++) {
@@ -55,7 +57,7 @@ static void writePolygon(
             file << " " << indices[j] + 1;
         }
         file << "\n";
-    }*/
+    }
     file.close();
 }
 
@@ -254,79 +256,42 @@ readOBJ(const std::string& file_name, std::vector<std::vector<scalar>>& V, std::
     return 0;
 }*/
 
-/*int main() {
-    exactinit();
-    const uint32_t n_points = 9;
-    std::vector<double> points{
-        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0.5, 0.5, 0.5
-    };
-    std::vector<uint32_t> indices{ 1, 3, 8, 0, 4, 3, 3, 4, 7, 3, 7, 6, 3, 6, 2, 6, 5,
-                                  2, 2, 5, 1, 1, 4, 0, 1, 5, 4, 4, 5, 6, 4, 6, 7};
-    writeOBJ("456.obj", points.data(), n_points, indices.data(), indices.size() / 3);
-    std::vector<double> out_points;
-    std::vector<uint32_t> out_faces, seperator;
-    make_polyhedral_mesh_from_triangles(
-        points.data(), n_points, indices.data(), indices.size() / 3, out_points, out_faces, seperator
-    );
-    writePolygon("123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(),
-seperator.size() - 1); return 0;
-}*/
-
-/* int main() {
-    exactinit();
-    std::vector<std::vector<double>> V;
-    std::vector<std::vector<uint32_t>> F;
-    readOBJ("bust.obj", V, F);
-    std::vector<double> points;
-    std::vector<uint32_t> indices;
-    for (const auto& vs : V) {
-        points.emplace_back(vs[0]);
-        points.emplace_back(vs[1]);
-        points.emplace_back(vs[2]);
-    }
-    for (const auto& fs : F) {
-        indices.emplace_back(fs[0]);
-        indices.emplace_back(fs[1]);
-        indices.emplace_back(fs[2]);
-    }
-    indices.emplace_back(2);
-    indices.emplace_back(1);
-    indices.emplace_back(4);
-    std::vector<double> out_points;
-    std::vector<uint32_t> out_faces, seperator;
-    make_polyhedral_mesh_from_triangles(
-        points.data(), points.size() / 3, indices.data(), indices.size() / 3, out_points, out_faces, seperator
-    );
-    writePolygon(
-        "123.obj", out_points.data(), out_points.size() / 3, out_faces.data(), seperator.data(), seperator.size() - 1
-    );
-}*/
+static void read_input(
+    const std::string& name, std::vector<double>& point_data, std::vector<uint32_t>& indices,
+    std::vector<uint32_t>& separators, std::vector<double>& axes
+) {
+    using json = nlohmann::json;
+    std::ifstream f(name);
+    const json data = json::parse(f);
+    data["pointsData"].get_to<std::vector<double>>(point_data);
+    data["separators"].get_to<std::vector<uint32_t>>(separators);
+    data["edgesData"].get_to<std::vector<uint32_t>>(indices);
+    data["axesData"].get_to<std::vector<double>>(axes);
+}
 
 int main() {
     exactinit();
-    std::vector<double> point_data{
-        0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1,
-    };
-    std::vector<uint32_t> indices{
-        3, 2, 2, 1, 1, 0, 0, 3, 4, 5, 5, 6, 6, 7, 7, 4, 0, 1, 1, 5, 5, 4, 4, 0,
-        1, 2, 2, 6, 6, 5, 5, 1, 3, 7, 7, 6, 6, 2, 2, 3, 4, 7, 7, 3, 3, 0, 0, 4,
-    };
-    std::vector<uint32_t> seperator{0, 8, 16, 24, 32, 40, 48};
-    std::vector<double> axes{
-        0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1,  0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
-        1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0,
-    };
-    uint32_t n_triangles = 0;
+    std::vector<double> point_data;
+    std::vector<uint32_t> indices;
+    std::vector<uint32_t> seperator;
+    std::vector<double> axes;
+    read_input("input.json", point_data, indices, seperator, axes);
     double* out_points;
     double* out_axes;
-    uint32_t* out_polygons;
-    uint32_t* out_seperators;
+    uint32_t* out_loops;
+    uint32_t* out_loop_separators;
+    uint32_t* out_polys;
+    uint32_t* out_poly_separators;
     const auto n_polygons = make_polyhedral_mesh(
-        point_data.data(), 8, indices.data(), axes.data(), seperator.data(), static_cast<uint32_t>(seperator.size() - 1), &out_points, &out_polygons, &out_axes, &out_seperators
+        point_data.data(), static_cast<uint32_t>(point_data.size() / 3), indices.data(), axes.data(), seperator.data(),
+        static_cast<uint32_t>(seperator.size() - 1), &out_points, &out_loops, &out_loop_separators, &out_polys, &out_poly_separators, &out_axes
     );
-    writePolygon("123.obj", out_points, 8, out_polygons, out_seperators, n_polygons);
-    delete [] out_points;
-    delete [] out_axes;
-    delete[] out_polygons;
-    delete[] out_seperators;
+    const auto out_n_pts = *std::max_element(out_loops, out_loops + out_loop_separators[n_polygons]) + 1;
+    writePolygon("123.obj", out_points, out_n_pts, out_loops, out_loop_separators, n_polygons);
+    delete[] out_points;
+    delete[] out_axes;
+    delete[] out_loops;
+    delete[] out_loop_separators;
+    delete[] out_polys;
+    delete[] out_poly_separators;
 }
